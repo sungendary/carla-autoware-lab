@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ROS 2 build outputs
+build/
+install/
+log/
+
+# Large files (저장소에 올리지 않음)
+*.bag
+*.db3
+*.mcap
+*.pcd
+carla/
+maps/
