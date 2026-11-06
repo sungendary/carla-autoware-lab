@@ -16,8 +16,10 @@
 
 | 항목 | 버전 | 상태 | 비고 |
 |---|---|---|---|
-| Host OS | Ubuntu 24.04 | 설치됨 | |
-| NVIDIA Driver | (확인 후 기록) | 확인 필요 | RTX 50 시리즈는 570 이상 필요 |
+| Host OS | Ubuntu 24.04.5 LTS (noble) | 설치됨 | |
+| Kernel | 7.0.0-42-generic | 설치됨 | HWE 커널 |
+| Secure Boot | enabled | - | 드라이버 모듈 서명 정상 
+| NVIDIA Driver | 595.99.02 (open kernel module) | 설치됨 | 패키지 `nvidia-driver-595-open`(apt), 지원 CUDA 최대 13.2. RTX 50은 570+ 및 -open 필수 |
 | Docker | (확인 후 기록) | 확인 필요 | |
 | NVIDIA Container Toolkit | (확인 후 기록) | 확인 필요 | |
 | Autoware | Docker 이미지 (ROS 2 Humble) | 미설치 | 이미지 태그 기록할 것 |
@@ -27,7 +29,7 @@
 
 | 용도 | 경로 |
 |---|---|
-| 저장소 | `~/carla-autoware-lab` |
+| 저장소 | `~/Desktop/develop/carla-autoware-lab` |
 | CARLA 설치 위치 | (설치 후 기록) |
 | Autoware 맵·데이터 | (설치 후 기록) |
 
@@ -35,9 +37,12 @@
 
 ## 자주 쓰는 명령
 
-```bash
 # GPU 확인
 nvidia-smi
+nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv
+
+# 로드된 드라이버 모듈 확인 (Open Kernel Module 여부)
+cat /proc/driver/nvidia/version
 
 # (설치하면서 추가)
 ```
