@@ -87,7 +87,7 @@ Project에서 회고한 뒤, 결과를 Code에 넘겨 파일을 갱신한다.
 
 ```
 [Project]
-이번 주({YYYY-Www}) 회고를 하자.
+목표({목표 이름}) 달성 회고를 하자.
 - 끝낸 이슈: {#번호들}
 - 진행 중: {#번호}
 - 막혔던 점: {내용}
@@ -100,7 +100,7 @@ Project에서 회고한 뒤, 결과를 Code에 넘겨 파일을 갱신한다.
 
 ```
 [Code]
-아래 회고 내용으로 docs/progress.md와 docs/devlog/{YYYY-Www}.md를 갱신하고 PR을 올려줘.
+아래 회고 내용으로 docs/progress.md와 docs/devlog/{날짜}_{목표}.md를 갱신하고 PR을 올려줘.
 {Project 회고 결과 붙여넣기}
 ```
 

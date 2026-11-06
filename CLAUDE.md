@@ -13,6 +13,7 @@ CARLA + Autoware로 인지-판단-제어 파이프라인을 학습하는 개인 
 - 설치·오류 해결 과정은 docs/env.md 또는 troubleshooting에 기록할 것
 - 커밋 메시지: `[label] 무엇을 했는지` (예: `[setup] Docker GPU 확인`)
 - 설명은 한국어로
+- devlog는 목표 달성 시 docs/devlog/{YYYY-MM-DD}_{목표}.md 형식으로 작성한다 (예: 2026-11-20_phase0-setup.md)
 
 ## 브랜치·커밋 규칙 (GitHub Flow)
 - main은 항상 실행 가능한 상태로 유지한다. 원칙적으로 main에 직접 커밋하지 않는다
