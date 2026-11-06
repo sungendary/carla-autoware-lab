@@ -37,6 +37,7 @@
 
 ## 자주 쓰는 명령
 
+```bash
 # GPU 확인
 nvidia-smi
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv
