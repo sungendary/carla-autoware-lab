@@ -25,7 +25,7 @@
 | Autoware | universe-cuda-humble-2.0.0 | 설치됨 | ghcr.io/autowarefoundation/autoware, digest sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff, 디스크 22.8GB / 압축 7.06GB, CUDA 12.8 (/usr/local/cuda-12.8), 컨테이너 사용자 aw(UID 1000) |
 | Autoware 참고 저장소 | autowarefoundation/autoware @2.0.0 | 클론됨 | ~/autoware, 빌드 안 함. 문서·ansible 참고용 |
 | DDS 수신 버퍼 | net.core.rmem_max=2147483647 | 적용됨 | /etc/sysctl.d/10-cyclone-max.conf (커널 기본 4194304) |
-| CARLA | 0.9.15 | 미설치 | |
+| CARLA | 0.9.16 | 미설치 | Docker carlasim/carla:0.9.16 예정 |
 
 ## 경로
 
@@ -33,6 +33,7 @@
 |---|---|
 | 저장소 | `~/Desktop/develop/carla-autoware-lab` |
 | CARLA 설치 위치 | (설치 후 기록) |
+| CARLA Python venv | `~/venvs/carla` (설치 후 확정) |
 | Autoware 맵·데이터 | `~/autoware_data` (컨테이너 `/autoware_data`) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
 
