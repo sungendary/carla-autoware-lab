@@ -22,6 +22,7 @@ CARLA + Autoware로 인지-판단-제어 파이프라인을 학습하는 개인 
   예: setup/docker-gpu, feat/control-pure-pursuit
 - 작업이 끝나면 PR을 만들고, 본문에 무엇을·왜·어떻게 확인했는지와 `Closes #번호`를 적는다
 - Phase 완료 시 main에 버전 태그를 붙인다 (Phase 0 → v0.1.0)
+- 머지 후 브랜치 삭제(원격은 자동 삭제 설정), 미머지 exp/ 브랜치는 archive/ 태그로 보관 후 삭제
 
 ## 답변 형식
 
