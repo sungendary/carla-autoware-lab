@@ -18,7 +18,7 @@
 달성하면 회고한다.
 
 - [x] #1 NVIDIA 드라이버 및 GPU 인식 확인
-- [ ] #2 Docker + NVIDIA Container Toolkit, 컨테이너 내 GPU 확인
+- [x] #2 Docker + NVIDIA Container Toolkit, 컨테이너 내 GPU 확인
 - [ ] #3 Autoware planning simulator 실행
 - [ ] #4 CARLA 단독 실행 및 Python API로 차량 스폰
 - [ ] #5 env.md 및 첫 devlog 정리
