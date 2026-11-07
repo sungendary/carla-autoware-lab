@@ -229,5 +229,5 @@ log/
 *.db3
 *.mcap
 *.pcd
-carla/
-maps/
+/carla/
+/maps/
