@@ -57,8 +57,17 @@ docker run --rm --gpus all ubuntu nvidia-smi
 ### Autoware planning simulator
 
 ```bash
-# [사전] DDS 수신 버퍼 상한 확인 (영구 적용됨)
+# [사전·최초 1회] DDS 수신 버퍼 상한 영구 적용 (재부팅 후에도 유지)
+echo 'net.core.rmem_max=2147483647' | sudo tee /etc/sysctl.d/10-cyclone-max.conf
+sudo sysctl --system | grep rmem_max
+# [매 실행 전 확인]
 sysctl net.core.rmem_max   # 2147483647이어야 함
+
+# [최초 1회] 샘플 맵 (URL·해시는 autoware 2.0.0 ansible/roles/demo_artifacts 기준)
+mkdir -p ~/autoware_data/maps && cd ~/autoware_data/maps
+wget -O sample-map-planning.zip https://autoware-files.s3.us-west-2.amazonaws.com/maps/demos/sample-map-planning.zip
+echo "5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9  sample-map-planning.zip" | sha256sum -c -
+unzip -o sample-map-planning.zip -d ~/autoware_data/maps
 
 # Autoware 컨테이너 실행
 IMG=ghcr.io/autowarefoundation/autoware:universe-cuda-humble-2.0.0
@@ -101,7 +110,7 @@ xhost -local:docker
 
 ### 2026-11-07 / 컨테이너 시작 시 entrypoint 경고 "ip link set lo multicast on" 실패
 - 원인: 이미지의 CycloneDDS 설정이 lo 전용 + multicast 사용인데, 컨테이너에 NET_ADMIN 권한이 없음. --net host에서 이 권한을 주면 호스트 lo가 바뀜
-- 해결: --net host 없이 컨테이너 전용 네트워크 + --cap-add=NET_ADMIN → 경고 사라짐, lo MULTICAST 확인. Phase 1(다른 컨테이너와 통신)에서 재검토
+- 해결: --net host 없이 Docker 기본 bridge 네트워크(--net 지정 없음) + --cap-add=NET_ADMIN → 경고 사라짐, lo MULTICAST 확인. Phase 1(다른 컨테이너와 통신)에서 재검토
 
 ### 2026-11-07 / launch 즉시 "failed to increase socket receive buffer size to at least 10485760 bytes, current is 8388608" + rmw_create_node 실패
 - 원인: 호스트 net.core.rmem_max = 4194304(커널 기본값) < cyclonedds.xml의 SocketReceiveBufferSize min 10MB. 컨테이너는 호스트 상한을 따름(8MB = 4MB × 2)
