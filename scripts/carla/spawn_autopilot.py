@@ -48,16 +48,18 @@ def main():
         vehicle.set_autopilot(True, tm.get_port())
 
         spectator = world.get_spectator()
-        steps = int(args.duration / settings.fixed_delta_seconds)
+        dt = settings.fixed_delta_seconds
+        steps = int(args.duration / dt)
+        print_every = round(2.0 / dt)  # 시뮬레이션 2초마다 출력
         for i in range(steps):
             world.tick()
             tf = vehicle.get_transform()
             spectator.set_transform(carla.Transform(
                 tf.location + carla.Location(z=40), carla.Rotation(pitch=-90)))
-            if i % 40 == 0:  # 시뮬레이션 2초마다 출력
+            if i % print_every == 0:
                 v = vehicle.get_velocity()
                 speed = 3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)
-                print(f"t={i*0.05:5.1f}s  speed={speed:5.1f} km/h  "
+                print(f"t={i*dt:5.1f}s  speed={speed:5.1f} km/h  "
                       f"dist_from_start={tf.location.distance(start):6.1f} m")
     finally:
         # 4) 정리: 스크립트가 죽어도 서버가 멈추지 않게

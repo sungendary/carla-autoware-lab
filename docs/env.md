@@ -118,6 +118,7 @@ docker run -d --rm --name carla \
   carlasim/carla:0.9.16 bash CarlaUE4.sh -nosound
 # 화면 없이: 위에서 DISPLAY·X11 줄을 빼고 -RenderOffScreen 추가
 # 로그는 "Disabling core dumps."에서 멈춘 것처럼 보이는 것이 정상 → 접속으로 확인
+conda activate carla   # 새 터미널마다 필요
 python -c "import carla; c=carla.Client('localhost',2000); c.set_timeout(10); print(c.get_client_version(), c.get_server_version())"  # 0.9.16 0.9.16
 
 # Town01 + 오토파일럿 (동기 모드, 시드 고정)
@@ -161,4 +162,4 @@ docker stop carla && xhost -local:docker
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
 - CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
-- 실제 확인한 서버 실행은 0.0.0.0 바인딩(-p 2000-2002:2000-2002). 127.0.0.1 바인딩 명령은 다음 실행 때 확인
+- 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
