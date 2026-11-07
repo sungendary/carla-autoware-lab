@@ -4,7 +4,7 @@ CARLA + Autoware로 인지-판단-제어 파이프라인을 학습하는 개인 
 ## 환경
 - Host: Ubuntu 24.04.5 (kernel 7.0 HWE), RTX 5070 Ti
 - NVIDIA driver: 595.99.02 (open kernel module), 지원 CUDA 최대 13.2
-- Autoware: Docker (ROS 2 Humble, universe-cuda 이미지)
+- Autoware: Docker (ROS 2 Humble, universe-cuda-humble-2.0.0 이미지, CUDA 12.8)
 - CARLA: 0.9.15
 - 자세한 버전과 명령은 docs/env.md 참고
 

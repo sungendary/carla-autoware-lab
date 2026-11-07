@@ -4,7 +4,7 @@
 > 기한이 아니라 목표 단위로 갱신한다. 현재 목표를 달성하면 회고하고, 이 파일과 Claude Project 지식 파일을 갱신한다.
 > 목표 달성 없이 1주가 지나면 짧게 점검한다. (무엇이 막혔는지, 목표를 쪼갤지)
 
-- 마지막 업데이트: 2026-11-06
+- 마지막 업데이트: 2026-11-07
 - 현재 Phase: Phase 0 – 기본기
 
 ## 지금까지 완료한 것
@@ -19,7 +19,7 @@
 
 - [x] #1 NVIDIA 드라이버 및 GPU 인식 확인
 - [x] #2 Docker + NVIDIA Container Toolkit, 컨테이너 내 GPU 확인
-- [ ] #3 Autoware planning simulator 실행
+- [x] #3 Autoware planning simulator 실행
 - [ ] #4 CARLA 단독 실행 및 Python API로 차량 스폰
 - [ ] #5 env.md 및 첫 devlog 정리
 
