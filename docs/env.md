@@ -178,7 +178,8 @@ conda activate carla   # 새 터미널마다 필요
 python -c "import carla; c=carla.Client('localhost',2000); c.set_timeout(10); print(c.get_client_version(), c.get_server_version())"  # 0.9.16 0.9.16
 
 # Town01 + 오토파일럿 (동기 모드, 시드 고정)
-python scripts/carla/spawn_autopilot.py --duration 60 --seed 42   # 저장소 루트에서 실행
+cd ~/Desktop/develop/carla-autoware-lab   # 저장소 루트 (스크립트가 상대 경로)
+python scripts/carla/spawn_autopilot.py --duration 60 --seed 42
 
 # 종료
 docker stop carla && xhost -local:docker
@@ -219,3 +220,6 @@ docker stop carla && xhost -local:docker
 - CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
 - 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
+- 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
+- CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
+- Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
