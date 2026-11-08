@@ -225,6 +225,14 @@ docker stop carla && xhost -local:docker
 - 원인: Ubuntu 24.04 시스템 Python에 python3.12-venv 미설치
 - 해결: 시스템 패키지 설치 대신 miniconda env(Python 3.10)로 전환 (D-002)
 
+### 2026-11-08 / 콜드 런 중 spawn_autopilot.py 실행 시 "No such file or directory"
+- 원인: 스크립트를 저장소 기준 상대 경로로 실행하는데, env.md에는 "저장소 루트에서 실행" 주석만 있고 cd 명령이 없었음. 새 터미널은 홈(~)에서 시작
+- 해결: spawn 명령 앞에 `cd ~/Desktop/develop/carla-autoware-lab` 추가. 문서 검증은 새 터미널에서 문서만 보고 실행(콜드 런)해서 한다
+
+### 2026-11-08 / grep 패턴에 `<!--`를 큰따옴표로 넣었더니 다른 문자열로 바뀌어 실행됨
+- 원인: bash 히스토리 확장. 큰따옴표 안에서도 `!`는 이전 명령 불러오기로 해석되고, bash는 바뀐 명령을 한 줄 출력한 뒤 실행함
+- 해결: `!`가 들어간 패턴은 작은따옴표로 감싼다 (예: `grep -rn '<!--' docs/`)
+
 ## 검증 범위
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증
