@@ -19,14 +19,16 @@
 | Host OS | Ubuntu 24.04.5 LTS (noble) | 설치됨 | |
 | Kernel | 7.0.0-42-generic | 설치됨 | HWE 커널 |
 | Secure Boot | enabled | - | 드라이버 모듈 서명 정상 |
-| NVIDIA Driver | 595.99.02 (open kernel module) | 설치됨 | 패키지 `nvidia-driver-595-open`(apt), 지원 CUDA 최대 13.2. RTX 50은 570+ 및 -open 필수 |
+| NVIDIA Driver | 595.99.02 (open kernel module) | 설치됨 | 패키지 `nvidia-driver-595-open`(apt, Ubuntu 공식 noble-updates/restricted), 커널 모듈은 `nvidia-dkms-595-open`(DKMS 빌드, MOK 서명). 지원 CUDA 최대 13.2. RTX 50은 570+ 및 -open 필수 |
 | Docker Engine | 29.9.0 (docker-ce, 공식 apt 저장소) | 설치됨 | rootful 모드, 사용자 docker 그룹 포함. compose 5.6.0 / buildx 0.38.0 / containerd 2.4.1 |
 | NVIDIA Container Toolkit | 1.20.1-1 (nvidia.github.io stable 저장소) | 설치됨 | `/etc/docker/daemon.json`에 nvidia 런타임 등록 |
 | Autoware | universe-cuda-humble-2.0.0 | 설치됨 | ghcr.io/autowarefoundation/autoware, digest sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff, 디스크 22.8GB / 압축 7.06GB, CUDA 12.8 (/usr/local/cuda-12.8), 컨테이너 사용자 aw(UID 1000) |
 | Autoware 참고 저장소 | autowarefoundation/autoware @2.0.0 | 클론됨 | ~/autoware, 빌드 안 함. 문서·ansible 참고용 |
 | DDS 수신 버퍼 | net.core.rmem_max=2147483647 | 적용됨 | /etc/sysctl.d/10-cyclone-max.conf (커널 기본 4194304) |
 | CARLA | 0.9.16 | 설치됨 | Docker carlasim/carla:0.9.16, digest sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953, 29.4GB, 컨테이너 workdir /workspace, 사용자 carla |
+| Miniconda | conda 26.7.1 | 설치됨 | ~/miniconda3, conda init bash |
 | CARLA Python 클라이언트 | carla 0.9.16 (cp310 wheel, manylinux_2_31) | 설치됨 | conda env carla, conda-forge, Python 3.10.22 (Autoware Humble 컨테이너와 같은 3.10) |
+| GitHub CLI | gh 2.103.3 | 설치됨 | cli.github.com/packages(공식 apt), gh auth login(HTTPS), 토큰은 시스템 keyring 저장, git 인증 도우미는 github.com 전용 |
 
 ## 경로
 
@@ -42,6 +44,68 @@
 
 ## 자주 쓰는 명령
 
+### 설치 (최초 1회, 순서대로)
+
+```bash
+# 1) NVIDIA 드라이버: Ubuntu 공식 저장소(noble-updates/restricted), DKMS 빌드 + MOK 서명
+sudo apt update
+sudo apt install nvidia-driver-595-open
+# Secure Boot: 설치 중 MOK 비밀번호 설정 → 재부팅 시 "Enroll MOK" → Continue → 비밀번호 입력
+#   (MOK 키가 이미 등록된 PC면 이 화면이 나오지 않음)
+sudo reboot
+cat /proc/driver/nvidia/version                       # Open Kernel Module 595.99.02
+dkms status                                           # 설치된 커널마다 nvidia/595.99.02 ... installed
+modinfo -F signer nvidia                              # <호스트명> Secure Boot Module Signature key
+mokutil --test-key /var/lib/shim-signed/mok/MOK.der   # already enrolled (앞의 keyring 경고는 무시)
+# 커널 업데이트 후 dkms status로 새 커널 빌드 확인. 이전 커널 빌드가 남아 있으면 GRUB에서 그 커널로 복구 가능
+
+# 2) Docker Engine: 공식 apt 저장소 (deb822 형식)
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<'EOF'
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
+sudo usermod -aG docker $USER        # 로그아웃 후 적용, groups로 docker 포함 확인
+# 버전은 고정하지 않음(보안 업데이트). 업그레이드 후 아래 GPU 컨테이너 확인을 다시 실행
+
+# 3) NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt update && sudo apt install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker   # daemon.json에 nvidia 런타임 등록(기본 런타임 아님 → --gpus all 필요)
+sudo systemctl restart docker
+docker run --rm --gpus all ubuntu nvidia-smi
+
+# 4) Miniconda (CARLA Python 클라이언트용, 검증 시 conda 26.7.1)
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3
+~/miniconda3/bin/conda init bash      # 새 셸부터 (base) 자동 활성화
+
+# 5) GitHub CLI: 공식 apt 저장소 (Ubuntu 기본 저장소 버전은 오래됨) (D-008)
+sudo mkdir -p -m 755 /etc/apt/keyrings
+wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+  | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update && sudo apt install gh
+gh auth login      # GitHub.com → HTTPS → Authenticate Git: Yes → Login with a web browser
+gh auth status     # Logged in ... (keyring), Token scopes에 repo 포함
+```
+
+호스트에 등록된 기타 저장소(이 프로젝트와 무관): graphics-drivers PPA(595는 이 PPA가 아닌 공식 저장소에서 설치), ubuntu-toolchain-r test PPA(호스트 gcc 갱신, 컨테이너에는 영향 없음)
+
 ```bash
 # GPU 확인
 nvidia-smi
@@ -52,8 +116,6 @@ cat /proc/driver/nvidia/version
 
 # 컨테이너 내 GPU 확인 (Toolkit이 호스트 드라이버를 주입하는지)
 docker run --rm --gpus all ubuntu nvidia-smi
-
-# (설치하면서 추가)
 ```
 
 ### Autoware planning simulator
@@ -70,6 +132,11 @@ mkdir -p ~/autoware_data/maps && cd ~/autoware_data/maps
 wget -O sample-map-planning.zip https://autoware-files.s3.us-west-2.amazonaws.com/maps/demos/sample-map-planning.zip
 echo "5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9  sample-map-planning.zip" | sha256sum -c -
 unzip -o sample-map-planning.zip -d ~/autoware_data/maps
+
+# [최초 1회] 이미지 (기록된 digest로 pull → 실행에 쓰는 태그 부여)
+docker pull ghcr.io/autowarefoundation/autoware@sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff
+docker tag ghcr.io/autowarefoundation/autoware@sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff \
+  ghcr.io/autowarefoundation/autoware:universe-cuda-humble-2.0.0
 
 # Autoware 컨테이너 실행
 IMG=ghcr.io/autowarefoundation/autoware:universe-cuda-humble-2.0.0
@@ -103,8 +170,9 @@ xhost -local:docker
 ### CARLA 단독 실행
 
 ```bash
-# [최초 1회] 서버 이미지
-docker pull carlasim/carla:0.9.16
+# [최초 1회] 서버 이미지 (기록된 digest로 pull → 실행에 쓰는 태그 부여)
+docker pull carlasim/carla@sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953
+docker tag carlasim/carla@sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953 carlasim/carla:0.9.16
 # [최초 1회] Python 클라이언트 (conda-forge만 사용: 기본 채널 약관 프롬프트 회피)
 conda create -n carla -c conda-forge --override-channels python=3.10 -y
 conda activate carla && python -m pip install carla==0.9.16
@@ -122,6 +190,7 @@ conda activate carla   # 새 터미널마다 필요
 python -c "import carla; c=carla.Client('localhost',2000); c.set_timeout(10); print(c.get_client_version(), c.get_server_version())"  # 0.9.16 0.9.16
 
 # Town01 + 오토파일럿 (동기 모드, 시드 고정)
+cd ~/Desktop/develop/carla-autoware-lab   # 저장소 루트 (스크립트가 상대 경로)
 python scripts/carla/spawn_autopilot.py --duration 60 --seed 42
 
 # 종료
@@ -156,6 +225,14 @@ docker stop carla && xhost -local:docker
 - 원인: Ubuntu 24.04 시스템 Python에 python3.12-venv 미설치
 - 해결: 시스템 패키지 설치 대신 miniconda env(Python 3.10)로 전환 (D-002)
 
+### 2026-11-08 / 콜드 런 중 spawn_autopilot.py 실행 시 "No such file or directory"
+- 원인: 스크립트를 저장소 기준 상대 경로로 실행하는데, env.md에는 "저장소 루트에서 실행" 주석만 있고 cd 명령이 없었음. 새 터미널은 홈(~)에서 시작
+- 해결: spawn 명령 앞에 `cd ~/Desktop/develop/carla-autoware-lab` 추가. 문서 검증은 새 터미널에서 문서만 보고 실행(콜드 런)해서 한다
+
+### 2026-11-08 / grep 패턴에 `<!--`를 큰따옴표로 넣었더니 다른 문자열로 바뀌어 실행됨
+- 원인: bash 히스토리 확장. 큰따옴표 안에서도 `!`는 이전 명령 불러오기로 해석되고, bash는 바뀐 명령을 한 줄 출력한 뒤 실행함
+- 해결: `!`가 들어간 패턴은 작은따옴표로 감싼다 (예: `grep -rn '<!--' docs/`)
+
 ## 검증 범위
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증
@@ -163,3 +240,6 @@ docker stop carla && xhost -local:docker
 - CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
 - 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
+- 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
+- CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
+- Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
