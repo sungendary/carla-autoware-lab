@@ -28,6 +28,7 @@
 | CARLA | 0.9.16 | 설치됨 | Docker carlasim/carla:0.9.16, digest sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953, 29.4GB, 컨테이너 workdir /workspace, 사용자 carla |
 | Miniconda | conda 26.7.1 | 설치됨 | ~/miniconda3, conda init bash |
 | CARLA Python 클라이언트 | carla 0.9.16 (cp310 wheel, manylinux_2_31) | 설치됨 | conda env carla, conda-forge, Python 3.10.22 (Autoware Humble 컨테이너와 같은 3.10) |
+| GitHub CLI | gh 2.103.3 | 설치됨 | cli.github.com/packages(공식 apt), gh auth login(HTTPS), 토큰은 시스템 keyring 저장, git 인증 도우미는 github.com 전용 |
 
 ## 경로
 
@@ -90,6 +91,17 @@ docker run --rm --gpus all ubuntu nvidia-smi
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3
 ~/miniconda3/bin/conda init bash      # 새 셸부터 (base) 자동 활성화
+
+# 5) GitHub CLI: 공식 apt 저장소 (Ubuntu 기본 저장소 버전은 오래됨) (D-008)
+sudo mkdir -p -m 755 /etc/apt/keyrings
+wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+  | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update && sudo apt install gh
+gh auth login      # GitHub.com → HTTPS → Authenticate Git: Yes → Login with a web browser
+gh auth status     # Logged in ... (keyring), Token scopes에 repo 포함
 ```
 
 호스트에 등록된 기타 저장소(이 프로젝트와 무관): graphics-drivers PPA(595는 이 PPA가 아닌 공식 저장소에서 설치), ubuntu-toolchain-r test PPA(호스트 gcc 갱신, 컨테이너에는 영향 없음)
