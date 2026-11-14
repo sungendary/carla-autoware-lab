@@ -29,6 +29,11 @@
 | Miniconda | conda 26.7.1 | 설치됨 | ~/miniconda3, conda init bash |
 | CARLA Python 클라이언트 | carla 0.9.16 (cp310 wheel, manylinux_2_31) | 설치됨 | conda env carla, conda-forge, Python 3.10.22 (Autoware Humble 컨테이너와 같은 3.10) |
 | GitHub CLI | gh 2.103.3 | 설치됨 | cli.github.com/packages(공식 apt), gh auth login(HTTPS), 토큰은 시스템 keyring 저장, git 인증 도우미는 github.com 전용 |
+| autoware_carla_interface | autoware_universe 0.53.1 (2.0.0 이미지 포함) | 확인됨 | /opt/autoware/autoware_carla_interface, launch: autoware_carla_interface.launch.xml, e2e_simulator simulator_type:=carla |
+| 컨테이너용 CARLA Python | carla 0.9.16 휠 | 준비됨 | ~/autoware_data/python/carla-0.9.16-site, 휠 sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95 (D-010) |
+| Hugging Face CLI | huggingface_hub 1.29.0 (hf) | 설치됨 | conda env hf (conda-forge, Python 3.10.22), 인지 모델 다운로드용 |
+| LiDAR 검출 모델 | lidar_centerpoint v4.1 | 받음 | HF AutowareFoundation/lidar_centerpoint, 커밋 462469f02ff658cc9e803eb058fb79b086c480cd, 19 files 71M, 파일별 sha256: ~/autoware_data/ml_models/lidar_centerpoint_v4.1.sha256. 출처 근거: autoware 2.0.0 ansible/roles/artifacts (role에 체크섬 없음) |
+| Open AD Kit 참고 저장소 | openadkit @c7586a131cae7dae8c8fa2daf96c3bc7814ca6dd (2026-11-09) | 클론됨 | ~/openadkit, 실행 안 함. CARLA 연동 비교 기준 |
 
 ## 경로
 
@@ -39,6 +44,12 @@
 | CARLA Python 클라이언트 | `~/miniconda3/envs/carla` |
 | Autoware 맵·데이터 | `~/autoware_data` (컨테이너 `/autoware_data`) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
+| 인지 모델 | `~/autoware_data/ml_models` (컨테이너에서 쓰기 가능 마운트 필요: TensorRT 엔진 생성. e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, #14 실행 명령에서 data_path 지정) |
+| Town01 맵 (#14에서 받음) | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local) |
+
+Town01 자산 출처 (openadkit deployment.json 기준)
+- Town01.osm: https://bitbucket.org/carla-simulator/autoware-contents/raw/062f94b5322e679ee0430e2daa6995dca9f7f0ea/maps/vector_maps/lanelet2/Town01.osm sha256 5e3c0873004666a399494a59048b93ecfbd1d40433c29d29e7319847a2a8afa2
+- Town01.pcd: https://bitbucket.org/carla-simulator/autoware-contents/raw/062f94b5322e679ee0430e2daa6995dca9f7f0ea/maps/point_cloud_maps/Town01.pcd sha256 296d6429ae0190b19a35458a155d76d8e3c4f460eb718cde3d669bc5a8f03ba2
 
 대용량 파일(CARLA 본체, 맵, rosbag)은 저장소에 넣지 않고 위 경로에 둔다.
 
@@ -235,7 +246,7 @@ docker stop carla && xhost -local:docker
 
 ## 검증 범위
 
-- GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증
+- GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증. Phase 1 e2e 기본 LiDAR 검출 centerpoint가 TensorRT를 사용하므로 #13에서 검증
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
 - CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
@@ -243,3 +254,5 @@ docker stop carla && xhost -local:docker
 - 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
 - CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
 - Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
+- 2026-11-15 2.0.0 기본 sensor_mapping.yaml은 LiDAR·카메라 6대·IMU·GNSS 활성(Open AD Kit은 카메라 주석 처리). 경량 매핑(sensor_mapping_light_weight.yaml)은 LiDAR·CAM_FRONT 1대·IMU·GNSS 활성. 차이: 카메라 6대(1600x900, FOV 70/후방 110) → CAM_FRONT 1대(1080x720, FOV 120), LiDAR·카메라 주기 11 Hz → 10 Hz. LiDAR 파라미터(64ch, 100 m)·IMU(50 Hz)·GNSS(2 Hz)는 같음. e2e_simulator 인자 `use_light_weight_sensor_mapping:=true`로 선택(기본 False), `sensor_mapping_file`로 직접 지정도 가능
+- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 인터페이스 launch를 인자 전달 없이 include하므로 최상위 `host:=carla`가 그대로 전달됨(D-009). 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
