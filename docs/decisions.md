@@ -21,7 +21,7 @@
 ## D-002. CARLA는 0.9.16 사용, 서버는 Docker로 실행 (0.9.15·0.10 아님)
 
 - 날짜: 2026-11-07 (최초 2026-11-05 0.9.15로 결정 → 변경)
-- 배경: Autoware 위키 기준 커뮤니티 유지 버전은 0.9.16(UE4)과 0.10.0(UE5)이다. autoware_carla_interface 문서는 0.9.15로 표기되어 있지만 0.9.16에서도 수정 없이 동작한다. Open AD Kit의 CARLA E2E 데모는 carlasim/carla:0.9.16 + Town01 구성이다. 이 데모는 모듈형 구성(서비스별 컨테이너, network_mode: host)이고 Town01 자산을 carla-simulator/autoware-contents 고정 커밋 + sha256으로 받는다. 호스트 요구는 Ubuntu 22.04. CARLA는 Ubuntu 24.04를 내부 테스트하지 않는다(권장 최대 22.04).
+- 배경: Autoware 위키 기준 커뮤니티 유지 버전은 0.9.16(UE4)과 0.10.0(UE5)이다. autoware_carla_interface 문서는 0.9.15로 표기되어 있지만 0.9.16에서도 수정 없이 동작한다. Open AD Kit의 CARLA E2E 데모는 carlasim/carla:0.9.16 + Town01 구성이다. 이 데모는 모듈형 구성(서비스별 컨테이너, network_mode: host)이고 Town01 자산을 carla-simulator/autoware-contents 고정 커밋 + sha256으로 받는다. Open AD Kit 호스트 요구는 Ubuntu 22.04. CARLA는 Ubuntu 24.04를 내부 테스트하지 않는다(권장 최대 22.04).
 - 고려한 대안: 0.9.15(기존 결정), 0.10.0, 호스트에 바이너리 직접 설치
 - 이유: Phase 1 목표(Town01 E2E)와 공식 데모 구성이 같다. 0.10은 Autoware 브리지 지원이 미확인이다. 서버를 Docker로 돌리면 24.04 미테스트 문제를 피하고, 호스트에는 Python 클라이언트(conda env carla, Python 3.10)만 둔다. Autoware Humble 컨테이너와 Python 버전을 맞추고 시스템 패키지 설치를 피하기 위함.
 - 다시 볼 조건: RTX 5070 Ti/595 드라이버에서 컨테이너 렌더링이 해결되지 않을 때, 또는 Autoware가 0.10을 공식 지원할 때
@@ -89,7 +89,7 @@
 - 배경: universe-cuda-humble-2.0.0에 autoware_carla_interface(autoware_universe 0.53.1)와 carla_sensor_kit_description/launch가 포함되고, e2e_simulator.launch.xml이 simulator_type:=carla를 지원한다(기본값 awsim). 인터페이스는 CARLA Python 클라이언트로 서버에 TCP 접속한다(2000 RPC, 2001 센서 스트리밍).
 - 결정
   - 인터페이스는 Autoware 컨테이너 안에서 e2e_simulator로 실행한다.
-  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). e2e_simulator는 인터페이스 launch를 인자 전달 없이 include하므로 최상위에서 준 host·port가 그대로 전달된다.
+  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). 최상위에서 준 host·port는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #13(ros2 param get).
   - 호스트 공개는 127.0.0.1:2000-2002를 유지한다(호스트 conda 클라이언트용).
   - DDS는 Autoware 컨테이너 내부 lo에서 끝난다(D-007 유지).
 - 고려한 대안

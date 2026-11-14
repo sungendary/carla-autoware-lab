@@ -44,7 +44,7 @@
 | CARLA Python 클라이언트 | `~/miniconda3/envs/carla` |
 | Autoware 맵·데이터 | `~/autoware_data` (컨테이너 `/autoware_data`) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
-| 인지 모델 | `~/autoware_data/ml_models` (컨테이너에서 쓰기 가능 마운트 필요: TensorRT 엔진 생성. e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, #14 실행 명령에서 data_path 지정) |
+| 인지 모델 | `~/autoware_data/ml_models` (현재 `-v $HOME/autoware_data:/autoware_data` 마운트로 쓰기 가능(TensorRT 엔진 생성에 필요). e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, #14 실행 명령에서 data_path 지정) |
 | Town01 맵 (#14에서 받음) | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local) |
 
 Town01 자산 출처 (openadkit deployment.json 기준)
@@ -255,4 +255,4 @@ docker stop carla && xhost -local:docker
 - CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
 - Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
 - 2026-11-15 2.0.0 기본 sensor_mapping.yaml은 LiDAR·카메라 6대·IMU·GNSS 활성(Open AD Kit은 카메라 주석 처리). 경량 매핑(sensor_mapping_light_weight.yaml)은 LiDAR·CAM_FRONT 1대·IMU·GNSS 활성. 차이: 카메라 6대(1600x900, FOV 70/후방 110) → CAM_FRONT 1대(1080x720, FOV 120), LiDAR·카메라 주기 11 Hz → 10 Hz. LiDAR 파라미터(64ch, 100 m)·IMU(50 Hz)·GNSS(2 Hz)는 같음. e2e_simulator 인자 `use_light_weight_sensor_mapping:=true`로 선택(기본 False), `sensor_mapping_file`로 직접 지정도 가능
-- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 인터페이스 launch를 인자 전달 없이 include하므로 최상위 `host:=carla`가 그대로 전달됨(D-009). 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
+- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #13(ros2 param get) (D-009). 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
