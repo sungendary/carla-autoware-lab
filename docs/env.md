@@ -208,7 +208,7 @@ python scripts/carla/spawn_autopilot.py --duration 60 --seed 42
 docker stop carla && xhost -local:docker
 ```
 
-포트 바인딩(127.0.0.1)은 Phase 1에서 브리지 연결 방식에 따라 재검토 (D-007과 함께)
+127.0.0.1:2000-2002 유지, 컨테이너 사이는 carla-aw 네트워크 (D-009)
 
 ## 트러블슈팅 기록
 
@@ -222,7 +222,7 @@ docker stop carla && xhost -local:docker
 
 ### 2026-11-07 / 컨테이너 시작 시 entrypoint 경고 "ip link set lo multicast on" 실패
 - 원인: 이미지의 CycloneDDS 설정이 lo 전용 + multicast 사용인데, 컨테이너에 NET_ADMIN 권한이 없음. --net host에서 이 권한을 주면 호스트 lo가 바뀜
-- 해결: --net host 없이 Docker 기본 bridge 네트워크(--net 지정 없음) + --cap-add=NET_ADMIN → 경고 사라짐, lo MULTICAST 확인. Phase 1(다른 컨테이너와 통신)에서 재검토
+- 해결: --net host 없이 Docker 기본 bridge 네트워크(--net 지정 없음) + --cap-add=NET_ADMIN → 경고 사라짐, lo MULTICAST 확인. Phase 1(다른 컨테이너와 통신)에서 재검토 → D-009에서 DDS는 컨테이너 내부 lo 유지로 결정
 
 ### 2026-11-07 / launch 즉시 "failed to increase socket receive buffer size to at least 10485760 bytes, current is 8388608" + rmw_create_node 실패
 - 원인: 호스트 net.core.rmem_max = 4194304(커널 기본값) < cyclonedds.xml의 SocketReceiveBufferSize min 10MB. 컨테이너는 호스트 상한을 따름(8MB = 4MB × 2)
@@ -248,7 +248,7 @@ docker stop carla && xhost -local:docker
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증. Phase 1 e2e 기본 LiDAR 검출 centerpoint가 TensorRT를 사용하므로 #13에서 검증
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
-- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB
+- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준. 센서 매핑 사용 시 #14에서 재측정)
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
 - 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
 - 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
