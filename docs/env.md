@@ -22,7 +22,7 @@
 | NVIDIA Driver | 595.99.02 (open kernel module) | 설치됨 | 패키지 `nvidia-driver-595-open`(apt, Ubuntu 공식 noble-updates/restricted), 커널 모듈은 `nvidia-dkms-595-open`(DKMS 빌드, MOK 서명). 지원 CUDA 최대 13.2. RTX 50은 570+ 및 -open 필수 |
 | Docker Engine | 29.9.0 (docker-ce, 공식 apt 저장소) | 설치됨 | rootful 모드, 사용자 docker 그룹 포함. compose 5.6.0 / buildx 0.38.0 / containerd 2.4.1 |
 | NVIDIA Container Toolkit | 1.20.1-1 (nvidia.github.io stable 저장소) | 설치됨 | `/etc/docker/daemon.json`에 nvidia 런타임 등록 |
-| Autoware | universe-cuda-humble-2.0.0 | 설치됨 | ghcr.io/autowarefoundation/autoware, digest sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff, 디스크 22.8GB / 압축 7.06GB, CUDA 12.8 (/usr/local/cuda-12.8), 컨테이너 사용자 aw(UID 1000) |
+| Autoware | universe-cuda-humble-2.0.0 | 설치됨 | ghcr.io/autowarefoundation/autoware, digest sha256:42df03619cb9c417e232ca8a7f8e483187f9fe07d1ff07247f0d44aecab67bff, 디스크 22.8GB / 압축 7.06GB, CUDA 12.8 (/usr/local/cuda-12.8), nvcc 12.8(/usr/local/cuda-12.8/bin/nvcc), TensorRT libnvinfer10 10.8.0.43-1+cuda12.8, 컨테이너 사용자 aw(UID 1000) |
 | Autoware 참고 저장소 | autowarefoundation/autoware @2.0.0 | 클론됨 | ~/autoware, 빌드 안 함. 문서·ansible 참고용 |
 | DDS 수신 버퍼 | net.core.rmem_max=2147483647 | 적용됨 | /etc/sysctl.d/10-cyclone-max.conf (커널 기본 4194304) |
 | CARLA | 0.9.16 | 설치됨 | Docker carlasim/carla:0.9.16, digest sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953, 29.4GB, 컨테이너 workdir /workspace, 사용자 carla |
@@ -30,7 +30,7 @@
 | CARLA Python 클라이언트 | carla 0.9.16 (cp310 wheel, manylinux_2_31) | 설치됨 | conda env carla, conda-forge, Python 3.10.22 (Autoware Humble 컨테이너와 같은 3.10) |
 | GitHub CLI | gh 2.103.3 | 설치됨 | cli.github.com/packages(공식 apt), gh auth login(HTTPS), 토큰은 시스템 keyring 저장, git 인증 도우미는 github.com 전용 |
 | autoware_carla_interface | autoware_universe 0.53.1 (2.0.0 이미지 포함) | 확인됨 | /opt/autoware/autoware_carla_interface, launch: autoware_carla_interface.launch.xml, e2e_simulator simulator_type:=carla |
-| 컨테이너용 CARLA Python | carla 0.9.16 휠 | 준비됨 | ~/autoware_data/python/carla-0.9.16-site, 휠 sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95 (D-010) |
+| 컨테이너용 CARLA Python | carla 0.9.16 휠 | 준비됨 | ~/autoware_deps/carla-0.9.16-site (휠 동일 폴더 ~/autoware_deps에 보관), 휠 sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95 (D-010) |
 | Hugging Face CLI | huggingface_hub 1.29.0 (hf) | 설치됨 | conda env hf (conda-forge, Python 3.10.22), 인지 모델 다운로드용 |
 | LiDAR 검출 모델 | lidar_centerpoint v4.1 | 받음 | HF AutowareFoundation/lidar_centerpoint, 커밋 462469f02ff658cc9e803eb058fb79b086c480cd, 19 files 71M, 파일별 sha256: ~/autoware_data/ml_models/lidar_centerpoint_v4.1.sha256. 출처 근거: autoware 2.0.0 ansible/roles/artifacts (role에 체크섬 없음) |
 | Open AD Kit 참고 저장소 | openadkit @c7586a131cae7dae8c8fa2daf96c3bc7814ca6dd (2026-11-09) | 클론됨 | ~/openadkit, 실행 안 함. CARLA 연동 비교 기준 |
@@ -43,6 +43,7 @@
 | CARLA 서버 이미지 | carlasim/carla:0.9.16 (호스트 설치 없음) |
 | CARLA Python 클라이언트 | `~/miniconda3/envs/carla` |
 | Autoware 맵·데이터 | `~/autoware_data` (컨테이너 `/autoware_data`) |
+| 컨테이너용 CARLA Python | `~/autoware_deps/carla-0.9.16-site` (컨테이너 `/opt/carla-py`, 읽기 전용, D-010) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
 | 인지 모델 | `~/autoware_data/ml_models` (현재 `-v $HOME/autoware_data:/autoware_data` 마운트로 쓰기 가능(TensorRT 엔진 생성에 필요). e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, #14 실행 명령에서 data_path 지정) |
 | Town01 맵 (#14에서 받음) | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local) |
@@ -208,7 +209,65 @@ python scripts/carla/spawn_autopilot.py --duration 60 --seed 42
 docker stop carla && xhost -local:docker
 ```
 
-127.0.0.1:2000-2002 유지, 컨테이너 사이는 carla-aw 네트워크 (D-009)
+### CARLA ↔ Autoware 연결 (#13)
+
+호스트 공개는 127.0.0.1:2000-2002 유지, 컨테이너 사이는 사용자 정의 bridge 네트워크 carla-aw (D-009). e2e_simulator 실행 인자는 #14에서 추가한다.
+
+```bash
+# [최초 1회] 사용자 정의 bridge 네트워크 (재부팅 후에도 유지, 지우지 않음)
+docker network create carla-aw
+docker network inspect carla-aw --format '{{.Driver}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'  # bridge 172.18.0.0/16
+
+# [최초 1회] 컨테이너용 CARLA Python 위치 (D-010): 휠·압축 해제 폴더 모두 ~/autoware_deps
+#   휠 sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95
+
+# CARLA 서버 (Phase 0 명령 + --network carla-aw)
+xhost +local:docker
+docker run -d --rm --name carla --network carla-aw \
+  --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -p 127.0.0.1:2000-2002:2000-2002 \
+  carlasim/carla:0.9.16 bash CarlaUE4.sh -nosound
+
+# Autoware (Phase 0 명령 + --network carla-aw + 휠 마운트 + PYTHONPATH)
+IMG=ghcr.io/autowarefoundation/autoware:universe-cuda-humble-2.0.0
+docker run -it --rm --name autoware --network carla-aw \
+  --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -v /etc/localtime:/etc/localtime:ro \
+  --cap-add=NET_ADMIN --ipc host \
+  -v $HOME/autoware_data:/autoware_data \
+  -v $HOME/autoware_deps/carla-0.9.16-site:/opt/carla-py:ro \
+  -e PYTHONPATH=/opt/carla-py \
+  $IMG
+
+# 연결 확인 (두 번째 셸: docker exec -it -u aw autoware bash)
+getent hosts carla                                  # 172.18.0.x carla
+for p in 2000 2001 2002; do timeout 3 bash -c "</dev/tcp/carla/$p" && echo "$p open" || echo "$p closed"; done
+
+# 서버 버전 + 스트리밍 (호스트, 저장소 루트에서. stdin으로 넘겨 저장소 마운트 불필요)
+cd ~/Desktop/develop/carla-autoware-lab
+docker exec -i -u aw autoware python3 - --host carla < scripts/carla/check_connection.py
+conda activate carla && python scripts/carla/check_connection.py --host localhost
+
+# 노출 범위
+docker port carla; docker port autoware
+sudo ss -tlnp | grep -E ':200[0-2]\b'
+docker network inspect carla-aw --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
+LAN_IP=$(ip -4 route get 1.1.1.1 | awk '{print $7; exit}')
+timeout 3 bash -c "</dev/tcp/$LAN_IP/2000" && echo "LAN 노출됨(문제)" || echo "LAN 차단(정상)"
+
+# CUDA 연산
+docker exec -i -u aw autoware python3 - < scripts/check/cuda_vadd.py
+
+# (컨테이너 안, ROS 소싱 후) centerpoint TensorRT 엔진만 빌드 후 종료
+ros2 launch autoware_lidar_centerpoint lidar_centerpoint.launch.xml \
+  data_path:=/autoware_data/ml_models build_only:=true
+find /autoware_data/ml_models/lidar_centerpoint -name '*.engine'
+
+# 종료 (네트워크는 유지)
+exit; docker stop carla && xhost -local:docker
+```
 
 ## 트러블슈팅 기록
 
@@ -244,9 +303,13 @@ docker stop carla && xhost -local:docker
 - 원인: bash 히스토리 확장. 큰따옴표 안에서도 `!`는 이전 명령 불러오기로 해석되고, bash는 바뀐 명령을 한 줄 출력한 뒤 실행함
 - 해결: `!`가 들어간 패턴은 작은따옴표로 감싼다 (예: `grep -rn '<!--' docs/`)
 
+### 2026-11-15 / 기존 휠 폴더 ~/autoware_data/python이 /autoware_data 마운트로 쓰기 가능하게 노출됨
+- 원인: 상위 폴더(~/autoware_data) 전체를 rw로 마운트해서, 하위의 /opt/carla-py:ro 마운트와 별개로 /autoware_data/python 경로가 쓰기 가능
+- 해결: ~/autoware_deps로 이동(휠 포함), D-010 갱신
+
 ## 검증 범위
 
-- GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산은 planning simulator에서 사용하지 않아 미검증. Phase 1 e2e 기본 LiDAR 검출 centerpoint가 TensorRT를 사용하므로 #13에서 검증
+- GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산·TensorRT는 아래 2026-11-15 항목(#13)에서 확인
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
 - CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준. 센서 매핑 사용 시 #14에서 재측정)
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
@@ -255,4 +318,11 @@ docker stop carla && xhost -local:docker
 - CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
 - Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
 - 2026-11-15 2.0.0 기본 sensor_mapping.yaml은 LiDAR·카메라 6대·IMU·GNSS 활성(Open AD Kit은 카메라 주석 처리). 경량 매핑(sensor_mapping_light_weight.yaml)은 LiDAR·CAM_FRONT 1대·IMU·GNSS 활성. 차이: 카메라 6대(1600x900, FOV 70/후방 110) → CAM_FRONT 1대(1080x720, FOV 120), LiDAR·카메라 주기 11 Hz → 10 Hz. LiDAR 파라미터(64ch, 100 m)·IMU(50 Hz)·GNSS(2 Hz)는 같음. e2e_simulator 인자 `use_light_weight_sensor_mapping:=true`로 선택(기본 False), `sensor_mapping_file`로 직접 지정도 가능
-- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #13(ros2 param get) (D-009). 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
+- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #14(ros2 param get) (D-009). #13은 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인. 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
+- 2026-11-15 CARLA ↔ Autoware 연결 (#13)
+  - 연결: autoware → carla 이름 해석 172.18.0.2, 2000·2001·2002 open (2002는 CARLA secondary 포트, 이 구성에서 미사용)
+  - 서버 접속·스트리밍: 컨테이너(--host carla)와 호스트(--host localhost) 모두 client/server 0.9.16, 카메라 프레임 12·13장 수신 OK. 기본 맵 Town10HD_Opt, synchronous_mode=False
+  - 노출 범위: docker port carla는 127.0.0.1:2000-2002만, docker port autoware는 없음, ss는 docker-proxy 127.0.0.1만 LISTEN, LAN IP(192.168.219.133):2000 거부. carla-aw 구성원은 carla 172.18.0.2와 autoware 172.18.0.3뿐
+  - CUDA 연산: RTX 5070 Ti, CC 12.0, 드라이버 API 13020, vadd N=1048576 불일치 0
+  - TensorRT: libnvinfer10 10.8.0.43(Blackwell 지원 최소 버전대). centerpoint base 엔진 빌드 성공: pts_voxel_encoder.engine 18306644 B(3.6 s), pts_backbone_neck_head.engine 12630740 B(67.0 s), TRT 최대 GPU 909 MiB. 엔진은 GPU 아키텍처·TRT 버전에 종속되므로 저장소에 넣지 않음. short_range/sigma/tiny 변형은 미빌드, e2e가 쓰는 변형은 #14에서 확인
+  - 무시해도 되는 경고: TRT "Network IO is empty, skipping validation", centerpoint "user_stream was not set ... CudaBlackboardSubscriber"(패키지 코드의 성능 경고)

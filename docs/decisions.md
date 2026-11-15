@@ -89,7 +89,7 @@
 - 배경: universe-cuda-humble-2.0.0에 autoware_carla_interface(autoware_universe 0.53.1)와 carla_sensor_kit_description/launch가 포함되고, e2e_simulator.launch.xml이 simulator_type:=carla를 지원한다(기본값 awsim). 인터페이스는 CARLA Python 클라이언트로 서버에 TCP 접속한다(2000 RPC, 2001 센서 스트리밍).
 - 결정
   - 인터페이스는 Autoware 컨테이너 안에서 e2e_simulator로 실행한다.
-  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). 최상위에서 준 host·port는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #13(ros2 param get).
+  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). 최상위에서 준 host·port는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #14(ros2 param get). #13에서는 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인했다.
   - 호스트 공개는 127.0.0.1:2000-2002를 유지한다(호스트 conda 클라이언트용).
   - DDS는 Autoware 컨테이너 내부 lo에서 끝난다(D-007 유지).
 - 고려한 대안
@@ -102,7 +102,8 @@
 
 - 날짜: 2026-11-15
 - 배경: 2.0.0 이미지에 carla 모듈이 없고(Python 3.10.12), pip도 없다. carla 0.9.16 휠은 Python 의존성(Requires)이 없다.
-- 결정: carla-0.9.16-cp310-cp310-manylinux_2_31_x86_64.whl (sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95)을 ~/autoware_data/python/carla-0.9.16-site에 압축 해제하고 `-v ...:/opt/carla-py:ro`, `-e PYTHONPATH=/opt/carla-py`로 쓴다. ROS 소싱 후에도 PYTHONPATH 유지, import carla 성공 확인.
+- 결정: carla-0.9.16-cp310-cp310-manylinux_2_31_x86_64.whl (sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95)을 ~/autoware_deps/carla-0.9.16-site에 압축 해제하고(휠도 ~/autoware_deps/에 보관) `-v ...:/opt/carla-py:ro`, `-e PYTHONPATH=/opt/carla-py`로 쓴다. ROS 소싱 후에도 PYTHONPATH 유지, import carla 성공 확인.
+  - 2026-11-15 갱신: 처음에는 ~/autoware_data/python에 두었으나, `-v ~/autoware_data:/autoware_data` 마운트로 /autoware_data/python에 쓰기 가능하게 노출되어 :ro 의미가 없었다. 마운트되지 않는 ~/autoware_deps로 이동했다.
 - 고려한 대안
   - 실행할 때마다 pip 설치: 이미지에 pip 없음, 매번 네트워크 필요
   - 호스트 conda env site-packages 마운트: Python 3.10.22/3.10.12 혼용, 경로 의존
