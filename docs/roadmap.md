@@ -64,7 +64,7 @@ CARLA와 Autoware를 연결해 E2E 자율주행을 구동한다.
 
 함께 익힐 것
 - C++ ROS 2 노드 개발: rclcpp, component, colcon 빌드, Autoware 메시지·플러그인 인터페이스 (D-011)
-  - 진입 시 확인: 실행용 이미지(universe-cuda-humble-2.0.0)에 nvcc 12.8 있음(2026-11-15 확인), g++·colcon은 진입 시 확인. 없으면 같은 버전의 devel 이미지 사용 여부 결정
+  - 진입 시 확인: 실행용 이미지(universe-cuda-humble-2.0.0)에 g++·colcon이 있는지(nvcc 12.8은 있음, 2026-11-15 확인). 없으면 같은 버전의 devel 이미지 사용 여부 결정
 
 ## Phase 3 – 검증
 

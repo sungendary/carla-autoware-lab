@@ -246,6 +246,7 @@ getent hosts carla                                  # 172.18.0.x carla
 for p in 2000 2001 2002; do timeout 3 bash -c "</dev/tcp/carla/$p" && echo "$p open" || echo "$p closed"; done
 
 # 서버 버전 + 스트리밍 (호스트, 저장소 루트에서. stdin으로 넘겨 저장소 마운트 불필요)
+#   e2e 실행 중에는 카메라 액터를 추가하므로 쓰지 않는다. 단독 확인에서 서버가 동기 모드로 남아 있으면 --tick
 cd ~/Desktop/develop/carla-autoware-lab
 docker exec -i -u aw autoware python3 - --host carla < scripts/carla/check_connection.py
 conda activate carla && python scripts/carla/check_connection.py --host localhost
@@ -254,7 +255,7 @@ conda activate carla && python scripts/carla/check_connection.py --host localhos
 docker port carla; docker port autoware
 sudo ss -tlnp | grep -E ':200[0-2]\b'
 docker network inspect carla-aw --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
-LAN_IP=$(ip -4 route get 1.1.1.1 | awk '{print $7; exit}')
+LAN_IP=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
 timeout 3 bash -c "</dev/tcp/$LAN_IP/2000" && echo "LAN 노출됨(문제)" || echo "LAN 차단(정상)"
 
 # CUDA 연산
@@ -266,7 +267,8 @@ ros2 launch autoware_lidar_centerpoint lidar_centerpoint.launch.xml \
 find /autoware_data/ml_models/lidar_centerpoint -name '*.engine'
 
 # 종료 (네트워크는 유지)
-exit; docker stop carla && xhost -local:docker
+exit                                        # (컨테이너 셸)
+docker stop carla && xhost -local:docker    # (호스트)
 ```
 
 ## 트러블슈팅 기록
@@ -322,7 +324,7 @@ exit; docker stop carla && xhost -local:docker
 - 2026-11-15 CARLA ↔ Autoware 연결 (#13)
   - 연결: autoware → carla 이름 해석 172.18.0.2, 2000·2001·2002 open (2002는 CARLA secondary 포트, 이 구성에서 미사용)
   - 서버 접속·스트리밍: 컨테이너(--host carla)와 호스트(--host localhost) 모두 client/server 0.9.16, 카메라 프레임 12·13장 수신 OK. 기본 맵 Town10HD_Opt, synchronous_mode=False
-  - 노출 범위: docker port carla는 127.0.0.1:2000-2002만, docker port autoware는 없음, ss는 docker-proxy 127.0.0.1만 LISTEN, LAN IP(192.168.219.133):2000 거부. carla-aw 구성원은 carla 172.18.0.2와 autoware 172.18.0.3뿐
+  - 노출 범위: docker port carla는 127.0.0.1:2000-2002만, docker port autoware는 없음, ss는 docker-proxy 127.0.0.1만 LISTEN, LAN IP(192.168.219.133):2000 거부(호스트 자신에서 LAN IP로 접속 시도한 결과이며, 다른 기기에서는 미확인). carla-aw 구성원은 carla 172.18.0.2와 autoware 172.18.0.3뿐
   - CUDA 연산: RTX 5070 Ti, CC 12.0, 드라이버 API 13020, vadd N=1048576 불일치 0
   - TensorRT: libnvinfer10 10.8.0.43(Blackwell 지원 최소 버전대). centerpoint base 엔진 빌드 성공: pts_voxel_encoder.engine 18306644 B(3.6 s), pts_backbone_neck_head.engine 12630740 B(67.0 s), TRT 최대 GPU 909 MiB. 엔진은 GPU 아키텍처·TRT 버전에 종속되므로 저장소에 넣지 않음. short_range/sigma/tiny 변형은 미빌드, e2e가 쓰는 변형은 #14에서 확인
   - 무시해도 되는 경고: TRT "Network IO is empty, skipping validation", centerpoint "user_stream was not set ... CudaBlackboardSubscriber"(패키지 코드의 성능 경고)

@@ -72,3 +72,5 @@ for x in d:
 
 bad = sum(1 for i in range(N) if c[i] != a[i] + 2.0)
 print(f"vadd N={N}: mismatches={bad} -> {'OK' if bad == 0 else 'FAIL'}")
+if bad:
+    sys.exit(1)
