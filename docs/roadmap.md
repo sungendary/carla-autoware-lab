@@ -62,6 +62,10 @@ CARLA와 Autoware를 연결해 E2E 자율주행을 구동한다.
 - 인지: CARLA 데이터로 3D 객체 검출 모델 학습 후 Autoware 인지 모듈 대체
 - 측위: GNSS + IMU EKF 구현 후 오차 비교
 
+함께 익힐 것
+- C++ ROS 2 노드 개발: rclcpp, component, colcon 빌드, Autoware 메시지·플러그인 인터페이스 (D-011)
+  - 진입 시 확인: 실행용 이미지(universe-cuda-humble-2.0.0)에 C++ 컴파일러·colcon이 있는지, 없으면 같은 버전의 devel 이미지 사용 여부 결정
+
 ## Phase 3 – 검증
 
 시나리오 기반으로 시스템을 반복 평가한다.
