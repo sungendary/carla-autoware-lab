@@ -309,6 +309,10 @@ docker stop carla && xhost -local:docker    # (호스트)
 - 원인: 상위 폴더(~/autoware_data) 전체를 rw로 마운트해서, 하위의 /opt/carla-py:ro 마운트와 별개로 /autoware_data/python 경로가 쓰기 가능
 - 해결: ~/autoware_deps로 이동(휠 포함), D-010 갱신
 
+### 2026-11-15 / 컨테이너 안에서 check_connection.py 실행 시 "RuntimeError: resolve: Host not found (authoritative)"
+- 원인: CARLA 컨테이너가 꺼져 있었음. --rm이라 정지 시 삭제되고 carla-aw 내장 DNS에서 이름 carla도 사라짐
+- 해결: CARLA를 --network carla-aw로 다시 실행하고, 약 20초 뒤 `docker exec -i -u aw autoware getent hosts carla`로 확인
+
 ## 검증 범위
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산·TensorRT는 아래 2026-11-15 항목(#13)에서 확인
@@ -322,8 +326,9 @@ docker stop carla && xhost -local:docker    # (호스트)
 - 2026-11-15 2.0.0 기본 sensor_mapping.yaml은 LiDAR·카메라 6대·IMU·GNSS 활성(Open AD Kit은 카메라 주석 처리). 경량 매핑(sensor_mapping_light_weight.yaml)은 LiDAR·CAM_FRONT 1대·IMU·GNSS 활성. 차이: 카메라 6대(1600x900, FOV 70/후방 110) → CAM_FRONT 1대(1080x720, FOV 120), LiDAR·카메라 주기 11 Hz → 10 Hz. LiDAR 파라미터(64ch, 100 m)·IMU(50 Hz)·GNSS(2 Hz)는 같음. e2e_simulator 인자 `use_light_weight_sensor_mapping:=true`로 선택(기본 False), `sensor_mapping_file`로 직접 지정도 가능
 - 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #14(ros2 param get) (D-009). #13은 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인. 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
 - 2026-11-15 CARLA ↔ Autoware 연결 (#13)
-  - 연결: autoware → carla 이름 해석 172.18.0.2, 2000·2001·2002 open (2002는 CARLA secondary 포트, 이 구성에서 미사용)
+  - 연결: autoware → carla 이름 해석 172.18.0.2, 2000·2001·2002 open (2002는 CARLA secondary 포트, 이 구성에서 미사용). IP는 컨테이너 시작 순서에 따라 바뀐다(재실행 시 autoware 172.18.0.2, carla 172.18.0.3). 접속은 항상 이름 carla로 한다
   - 서버 접속·스트리밍: 컨테이너(--host carla)와 호스트(--host localhost) 모두 client/server 0.9.16, 카메라 프레임 12·13장 수신 OK. 기본 맵 Town10HD_Opt, synchronous_mode=False
+  - check_connection 동기 분기(리뷰 반영 cb2ef3b 후): 동기 모드 + tick 없음 0 frames FAIL(tick 안내) exit 1, 동기 모드 + --tick 10 frames OK exit 0 (확인 후 서버 비동기로 복원). 비동기 컨테이너·호스트 OK exit 0, cuda_vadd exit 0
   - 노출 범위: docker port carla는 127.0.0.1:2000-2002만, docker port autoware는 없음, ss는 docker-proxy 127.0.0.1만 LISTEN, LAN IP(192.168.219.133):2000 거부(호스트 자신에서 LAN IP로 접속 시도한 결과이며, 다른 기기에서는 미확인). carla-aw 구성원은 carla 172.18.0.2와 autoware 172.18.0.3뿐
   - CUDA 연산: RTX 5070 Ti, CC 12.0, 드라이버 API 13020, vadd N=1048576 불일치 0
   - TensorRT: libnvinfer10 10.8.0.43(Blackwell 지원 최소 버전대). centerpoint base 엔진 빌드 성공: pts_voxel_encoder.engine 18306644 B(3.6 s), pts_backbone_neck_head.engine 12630740 B(67.0 s), TRT 최대 GPU 909 MiB. 엔진은 GPU 아키텍처·TRT 버전에 종속되므로 저장소에 넣지 않음. short_range/sigma/tiny 변형은 미빌드, e2e가 쓰는 변형은 #14에서 확인
