@@ -29,6 +29,7 @@
 | Miniconda | conda 26.7.1 | 설치됨 | ~/miniconda3, conda init bash |
 | CARLA Python 클라이언트 | carla 0.9.16 (cp310 wheel, manylinux_2_31) | 설치됨 | conda env carla, conda-forge, Python 3.10.22 (Autoware Humble 컨테이너와 같은 3.10) |
 | GitHub CLI | gh 2.103.3 | 설치됨 | cli.github.com/packages(공식 apt), gh auth login(HTTPS), 토큰은 시스템 keyring 저장, git 인증 도우미는 github.com 전용 |
+| git-lfs | 3.8.1 | 설치됨 | packagecloud.io/github/git-lfs(apt), 2026-11-15 설치. LFS 필터 설정(filter.lfs.*)은 ~/.gitconfig. Town01 자산(LFS 파일) 받기용 |
 | autoware_carla_interface | autoware_universe 0.53.1 (2.0.0 이미지 포함) | 확인됨 | /opt/autoware/autoware_carla_interface, launch: autoware_carla_interface.launch.xml, e2e_simulator simulator_type:=carla |
 | 컨테이너용 CARLA Python | carla 0.9.16 휠 | 준비됨 | ~/autoware_deps/carla-0.9.16-site (휠 동일 폴더 ~/autoware_deps에 보관), 휠 sha256 52b1f2fafb0655e25954f9f6d1e97c211a4da404217fd1d0094b4b7350737c95 (D-010) |
 | Hugging Face CLI | huggingface_hub 1.29.0 (hf) | 설치됨 | conda env hf (conda-forge, Python 3.10.22), 인지 모델 다운로드용 |
@@ -45,12 +46,40 @@
 | Autoware 맵·데이터 | `~/autoware_data` (컨테이너 `/autoware_data`) |
 | 컨테이너용 CARLA Python | `~/autoware_deps/carla-0.9.16-site` (컨테이너 `/opt/carla-py`, 읽기 전용, D-010) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
-| 인지 모델 | `~/autoware_data/ml_models` (현재 `-v $HOME/autoware_data:/autoware_data` 마운트로 쓰기 가능(TensorRT 엔진 생성에 필요). e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, #14 실행 명령에서 data_path 지정) |
-| Town01 맵 (#14에서 받음) | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local) |
+| 인지 모델 | `~/autoware_data/ml_models` (현재 `-v $HOME/autoware_data:/autoware_data` 마운트로 쓰기 가능(TensorRT 엔진 생성에 필요). e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, e2e 실행 명령에서 `data_path:=/autoware_data/ml_models` 지정) |
+| Town01 맵 | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local). 2026-11-15 해시 확인, 원본 `~/autoware_src/autoware-contents` |
+| autoware_carla_interface 설치 위치 | `/opt/autoware/autoware_carla_interface/local/lib/python3.10/dist-packages/autoware_carla_interface` (컨테이너 안) |
+| RViz 설정 (CARLA 확인용) | `~/autoware_data/rviz/carla_check.rviz` (컨테이너 `/autoware_data/rviz/carla_check.rviz`) |
+| 실행 로그 | `~/autoware_data/logs` (컨테이너 `/autoware_data/logs`) |
+| 캡처 | `docs/images/{이슈번호}_{내용}[_{기준}].{png\|pdf}` (예: 14_rviz_sensing_base_link.png, 14_tf_frames.pdf) |
 
 Town01 자산 출처 (openadkit deployment.json 기준)
 - Town01.osm: https://bitbucket.org/carla-simulator/autoware-contents/raw/062f94b5322e679ee0430e2daa6995dca9f7f0ea/maps/vector_maps/lanelet2/Town01.osm sha256 5e3c0873004666a399494a59048b93ecfbd1d40433c29d29e7319847a2a8afa2
 - Town01.pcd: https://bitbucket.org/carla-simulator/autoware-contents/raw/062f94b5322e679ee0430e2daa6995dca9f7f0ea/maps/point_cloud_maps/Town01.pcd sha256 296d6429ae0190b19a35458a155d76d8e3c4f460eb718cde3d669bc5a8f03ba2
+- 위 raw URL 2개: 불가(2026-11-15, GET 404·HEAD 403, openadkit deployment.json과 동일). 두 파일은 Git LFS로 저장되어 있어 아래처럼 받는다
+- 확인 결과: LFS 포인터 oid = 위 sha256과 일치, 크기 472955 B(osm)·190275004 B(pcd). PCD는 v0.7, FIELDS x y z, 16726884 pts, DATA binary_compressed. osm은 node 1848개 모두 local_x 태그 보유(map_projector_info Local과 맞음)
+
+```bash
+# [최초 1회] Town01 자산: 필요한 두 파일만 sparse checkout + LFS pull (git-lfs 필요)
+mkdir -p ~/autoware_src && cd ~/autoware_src
+git clone --filter=blob:none --no-checkout https://bitbucket.org/carla-simulator/autoware-contents.git
+cd autoware-contents
+git sparse-checkout set --no-cone /maps/vector_maps/lanelet2/Town01.osm /maps/point_cloud_maps/Town01.pcd
+# checkout 중 LFS 다운로드는 진행률이 없어 멈춘 것처럼 보임 → 포인터만 받고 lfs pull로 분리
+GIT_LFS_SKIP_SMUDGE=1 git checkout -f 062f94b5322e679ee0430e2daa6995dca9f7f0ea
+git lfs pull --include="maps/vector_maps/lanelet2/Town01.osm,maps/point_cloud_maps/Town01.pcd"
+
+mkdir -p ~/autoware_data/maps/Town01
+cp maps/vector_maps/lanelet2/Town01.osm ~/autoware_data/maps/Town01/lanelet2_map.osm
+cp maps/point_cloud_maps/Town01.pcd ~/autoware_data/maps/Town01/pointcloud_map.pcd
+echo 'projector_type: Local' > ~/autoware_data/maps/Town01/map_projector_info.yaml
+chmod 644 ~/autoware_data/maps/Town01/*
+cd ~/autoware_data/maps/Town01
+sha256sum -c - <<'EOF'
+5e3c0873004666a399494a59048b93ecfbd1d40433c29d29e7319847a2a8afa2  lanelet2_map.osm
+296d6429ae0190b19a35458a155d76d8e3c4f460eb718cde3d669bc5a8f03ba2  pointcloud_map.pcd
+EOF
+```
 
 대용량 파일(CARLA 본체, 맵, rosbag)은 저장소에 넣지 않고 위 경로에 둔다.
 
@@ -114,9 +143,18 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubc
 sudo apt update && sudo apt install gh
 gh auth login      # GitHub.com → HTTPS → Authenticate Git: Yes → Login with a web browser
 gh auth status     # Logged in ... (keyring), Token scopes에 repo 포함
+
+# 6) git-lfs: packagecloud.io/github/git-lfs (Town01 자산 받기용)
+#    이 PC는 저장소가 이미 등록되어 있었음(/etc/apt/sources.list.d/github_git-lfs.list, packagecloud 스크립트가 생성)
+#    새 PC(공식 안내, 이 PC에서는 미실행): curl -fsSL https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt install git-lfs
+git lfs version    # git-lfs/3.8.1
+git config --global --get-regexp '^filter\.lfs'   # 필터 설정이 없으면 git lfs install
 ```
 
-호스트에 등록된 기타 저장소(이 프로젝트와 무관): graphics-drivers PPA(595는 이 PPA가 아닌 공식 저장소에서 설치), ubuntu-toolchain-r test PPA(호스트 gcc 갱신, 컨테이너에는 영향 없음)
+호스트에 등록된 기타 저장소
+- 이 프로젝트에서 사용: packagecloud.io/github/git-lfs (git-lfs)
+- 이 프로젝트와 무관: graphics-drivers PPA(595는 이 PPA가 아닌 공식 저장소에서 설치), ubuntu-toolchain-r test PPA(호스트 gcc 갱신, 컨테이너에는 영향 없음)
 
 ```bash
 # GPU 확인
@@ -141,7 +179,7 @@ sysctl net.core.rmem_max   # 2147483647이어야 함
 
 # [최초 1회] 샘플 맵 (URL·해시는 autoware 2.0.0 ansible/roles/demo_artifacts 기준)
 mkdir -p ~/autoware_data/maps && cd ~/autoware_data/maps
-wget -O sample-map-planning.zip https://autoware-files.s3.us-west-2.amazonaws.com/maps/demos/sample-map-planning.zip
+curl -fL -o sample-map-planning.zip https://autoware-files.s3.us-west-2.amazonaws.com/maps/demos/sample-map-planning.zip
 echo "5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9  sample-map-planning.zip" | sha256sum -c -
 unzip -o sample-map-planning.zip -d ~/autoware_data/maps
 
@@ -209,9 +247,9 @@ python scripts/carla/spawn_autopilot.py --duration 60 --seed 42
 docker stop carla && xhost -local:docker
 ```
 
-### CARLA ↔ Autoware 연결 (#13)
+### CARLA ↔ Autoware 연결 (#13, #14)
 
-호스트 공개는 127.0.0.1:2000-2002 유지, 컨테이너 사이는 사용자 정의 bridge 네트워크 carla-aw (D-009). e2e_simulator 실행 인자는 #14에서 추가한다.
+호스트 공개는 127.0.0.1:2000-2002 유지, 컨테이너 사이는 사용자 정의 bridge 네트워크 carla-aw (D-009). Town01 e2e 실행 명령은 이 절 끝(#14).
 
 ```bash
 # [최초 1회] 사용자 정의 bridge 네트워크 (재부팅 후에도 유지, 지우지 않음)
@@ -271,6 +309,34 @@ exit                                        # (컨테이너 셸)
 docker stop carla && xhost -local:docker    # (호스트)
 ```
 
+Town01 e2e 실행 (#14). CARLA·Autoware 컨테이너는 위 명령으로 띄운 상태에서 시작한다. ego 스폰 위치는 D-012.
+
+```bash
+# (Autoware 컨테이너 안) e2e_simulator + CARLA, 로그는 /autoware_data/logs에 저장
+ros2 launch autoware_launch e2e_simulator.launch.xml \
+  map_path:=/autoware_data/maps/Town01 \
+  vehicle_model:=sample_vehicle sensor_model:=carla_sensor_kit \
+  simulator_type:=carla host:=carla port:=2000 \
+  data_path:=/autoware_data/ml_models \
+  use_light_weight_sensor_mapping:=true use_traffic_light_recognition:=false \
+  spawn_point:="395.96, 249.43, 0.30, 0.0, 0.0, -90.0" spawn_point_ground_snap:=true \
+  2>&1 | tee /autoware_data/logs/14_e2e_$(date +%m%d_%H%M).log
+# spawn_point: CARLA 좌표·deg, 대괄호 없이 "x, y, z, roll, pitch, yaw". 6개가 아니면 오류 없이 랜덤 스폰
+
+# 두 번째 셸 (호스트에서)
+docker exec -it -u aw autoware bash
+source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash
+
+# 상태 확인
+ros2 param get /autoware_carla_interface host                              # String value is: carla
+timeout 5 ros2 topic echo /api/localization/initialization_state --once  # state 3 (GNSS 자동 초기화)
+timeout 10 ros2 topic hz /clock                                            # 약 20 Hz (RTF≈1)
+timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약 10 Hz
+```
+
+- RViz 설정: `/autoware_data/rviz/carla_check.rviz` (File → Open Config). 기본 autoware.rviz는 덮어쓰지 않는다. 값 편집은 Displays 패널의 값 칸을 더블클릭
+- 종료 후 CARLA 동기 모드: 미확인(CARLA를 먼저 종료함). CARLA 컨테이너를 새로 띄우면 기본 비동기. CARLA 실행 중 Autoware만 재시작할 때 동기 모드가 남는지는 #15에서 확인
+
 ## 트러블슈팅 기록
 
 형식: 날짜 / 증상 / 원인 / 해결
@@ -313,23 +379,48 @@ docker stop carla && xhost -local:docker    # (호스트)
 - 원인: CARLA 컨테이너가 꺼져 있었음. --rm이라 정지 시 삭제되고 carla-aw 내장 DNS에서 이름 carla도 사라짐
 - 해결: CARLA를 --network carla-aw로 다시 실행하고, 약 20초 뒤 `docker exec -i -u aw autoware getent hosts carla`로 확인
 
+### 2026-11-15 / Town01.osm·Town01.pcd를 Bitbucket raw URL로 받으면 404
+- 원인: 두 파일이 Git LFS 파일이라 raw URL로는 받을 수 없음(GET 404·HEAD 403). 호스트에는 git-lfs가 설치되어 있지 않고 ~/.gitconfig에 LFS 필터 설정만 남아 있었음
+- 해결: git-lfs 설치(apt, packagecloud.io/github/git-lfs) 후 sparse checkout + git lfs pull (명령은 경로 절 "Town01 자산 출처")
+- 주의: checkout 중 LFS 다운로드(smudge)는 진행률이 표시되지 않아 멈춘 것처럼 보임 → `GIT_LFS_SKIP_SMUDGE=1`로 포인터만 checkout한 뒤 `git lfs pull`로 받음. 이번에는 중단된 checkout이 이미 받아 두어 lfs pull 출력 없음
+
+### 2026-11-15 / e2e launch 직후 "Failed transform to map", "not part of the same tree" 반복, aggregator "Mode path not found"
+- 원인: 오류 아님. 위치 초기화 전에는 map→base_link TF가 없어 변환이 실패함. aggregator 메시지는 시작 시 1회성
+- 확인: GNSS 자동 초기화(state 3) 후 TF 경고 증가가 멈춤
+
+### 2026-11-15 / RViz에 Town01 차선·점군 맵이 표시되지 않음
+- 원인: 발행은 정상(/map/vector_map_marker·/map/pointcloud_map TRANSIENT_LOCAL). Lanelet2VectorMap은 Status Ok인데 Namespaces가 비어 있음 → 1회만 발행되는 메시지를 표시 항목이 받지 못한 상태. 점군 맵은 기본값(크기 1px, Alpha 0.2)이 너무 작고 흐림
+- 해결: 표시 항목 체크를 껐다 다시 켜서 재구독 → 차선 표시됨. PointCloudMap은 Size 2·Alpha 0.6으로 변경 후 carla_check.rviz에 저장
+
 ## 검증 범위
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산·TensorRT는 아래 2026-11-15 항목(#13)에서 확인
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
-- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준. 센서 매핑 사용 시 #14에서 재측정)
+- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준). Town01 e2e(경량 매핑·RViz) 실행 시 VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3×~230), 상세는 아래 2026-11-15 #14 항목
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
 - 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
 - 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
 - CARLA 기준값(시드 42, Town01, 60 s): 스폰 x=396.0, y=249.4 / 60 s 이동거리 333.7 m
 - Docker 디스크(2026-11-08): 이미지 78.19GB 중 이 프로젝트용은 Autoware 22.8GB·CARLA 29.4GB. 나머지(challenge-prediction 등)는 무관, 루트 여유 1.1TB라 유지. system df의 RECLAIMABLE에는 정지 중인 Autoware·CARLA도 포함되므로 prune -a 금지
 - 2026-11-15 2.0.0 기본 sensor_mapping.yaml은 LiDAR·카메라 6대·IMU·GNSS 활성(Open AD Kit은 카메라 주석 처리). 경량 매핑(sensor_mapping_light_weight.yaml)은 LiDAR·CAM_FRONT 1대·IMU·GNSS 활성. 차이: 카메라 6대(1600x900, FOV 70/후방 110) → CAM_FRONT 1대(1080x720, FOV 120), LiDAR·카메라 주기 11 Hz → 10 Hz. LiDAR 파라미터(64ch, 100 m)·IMU(50 Hz)·GNSS(2 Hz)는 같음. e2e_simulator 인자 `use_light_weight_sensor_mapping:=true`로 선택(기본 False), `sensor_mapping_file`로 직접 지정도 가능
-- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #14(ros2 param get) (D-009). #13은 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인. 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
+- 2026-11-15 e2e_simulator.launch.xml --show-args: CARLA 서버 지정 인자는 `host`(기본 localhost)·`port`(기본 2000), 접속 `timeout` 기본 20. 최상위 `host:=carla`는 launch 구조상(인자 없이 include) 전달될 것으로 판단 → #14에서 `ros2 param get /autoware_carla_interface host` = carla로 확인 (D-009). #13은 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인. 그 밖에 `data_path` 기본 `$HOME/autoware_data/ml_models`, `carla_map`(기본 빈 값: map_path에서 이름 유도), `sync_mode` True, `fixed_delta_seconds` 0.05
 - 2026-11-15 CARLA ↔ Autoware 연결 (#13)
   - 연결: autoware → carla 이름 해석 172.18.0.2, 2000·2001·2002 open (2002는 CARLA secondary 포트, 이 구성에서 미사용). IP는 컨테이너 시작 순서에 따라 바뀐다(재실행 시 autoware 172.18.0.2, carla 172.18.0.3). 접속은 항상 이름 carla로 한다
   - 서버 접속·스트리밍: 컨테이너(--host carla)와 호스트(--host localhost) 모두 client/server 0.9.16, 카메라 프레임 12·13장 수신 OK. 기본 맵 Town10HD_Opt, synchronous_mode=False
   - check_connection 동기 분기(리뷰 반영 cb2ef3b 후): 동기 모드 + tick 없음 0 frames FAIL(tick 안내) exit 1, 동기 모드 + --tick 10 frames OK exit 0 (확인 후 서버 비동기로 복원). 비동기 컨테이너·호스트 OK exit 0, cuda_vadd exit 0
   - 노출 범위: docker port carla는 127.0.0.1:2000-2002만, docker port autoware는 없음, ss는 docker-proxy 127.0.0.1만 LISTEN, LAN IP(192.168.219.133):2000 거부(호스트 자신에서 LAN IP로 접속 시도한 결과이며, 다른 기기에서는 미확인). carla-aw 구성원은 carla 172.18.0.2와 autoware 172.18.0.3뿐
   - CUDA 연산: RTX 5070 Ti, CC 12.0, 드라이버 API 13020, vadd N=1048576 불일치 0
-  - TensorRT: libnvinfer10 10.8.0.43(Blackwell 지원 최소 버전대). centerpoint base 엔진 빌드 성공: pts_voxel_encoder.engine 18306644 B(3.6 s), pts_backbone_neck_head.engine 12630740 B(67.0 s), TRT 최대 GPU 909 MiB. 엔진은 GPU 아키텍처·TRT 버전에 종속되므로 저장소에 넣지 않음. short_range/sigma/tiny 변형은 미빌드, e2e가 쓰는 변형은 #14에서 확인
+  - TensorRT: libnvinfer10 10.8.0.43(Blackwell 지원 최소 버전대). centerpoint base 엔진 빌드 성공: pts_voxel_encoder.engine 18306644 B(3.6 s), pts_backbone_neck_head.engine 12630740 B(67.0 s), TRT 최대 GPU 909 MiB. 엔진은 GPU 아키텍처·TRT 버전에 종속되므로 저장소에 넣지 않음. short_range/sigma/tiny 변형은 미빌드. e2e는 base 변형을 씀(#14에서 확인, 이 엔진 재사용)
   - 무시해도 되는 경고: TRT "Network IO is empty, skipping validation", centerpoint "user_stream was not set ... CudaBlackboardSubscriber"(패키지 코드의 성능 경고)
+- 2026-11-15 Town01 e2e 실행 (#14)
+  - --show-args: `spawn_point`(최상위 인자, 기본 None = 랜덤, CARLA 좌표·deg, 대괄호 없이 "x, y, z, roll, pitch, yaw". 값이 6개가 아니면 오류 없이 랜덤 스폰, 파싱 시 z+2), `spawn_point_ground_snap`(기본 False, 켜면 지면+0.5), `lidar_detection_model` centerpoint(변형 이름 미지정 → base, #13 엔진 재사용), `use_traffic_light_recognition` 기본 true(이번 실행은 false)
+  - host 전달: `ros2 param get /autoware_carla_interface host` = carla (#13의 "launch 구조상 전달될 것" 판단 확인, D-009)
+  - 시계·주기: /clock 발행자는 autoware_carla_interface(자신은 use_sim_time False), Autoware 노드는 use_sim_time True, 메시지 stamp는 sim time. /clock 19.97 Hz(fixed_delta 0.05 s → RTF≈1). LiDAR /sensing/lidar/top/pointcloud_before_sync 9.99 Hz → /sensing/lidar/concatenated/pointcloud 9.98 Hz, CAM_FRONT 9.99 Hz
+  - 맵 로드: lanelet2 로드 성공("no format_version" 경고는 무시), /map/vector_map·/map/vector_map_marker·/map/pointcloud_map 모두 TRANSIENT_LOCAL
+  - 위치 추정: GNSS 자동 초기화 state 3(sim 13.9 s). kinematic_state (395.99, −250.85) yaw 90.1°, NDT NVTL 2.70 ≥ 2.3(converged_param_type 1). no_ground NVTL은 기본 미발행
+  - 좌표 변환: CARLA (x, y, yaw) → map (x, −y, −yaw), 원점 같음(0). base_link는 CARLA 액터 중심에서 진행 반대 방향으로 wheelbase/2(1.425 m) 떨어진 점(후륜축 중심)
+  - TF: map→base_link(EKF 20.2 Hz)·map→ndt_base_link(10.2 Hz)·map→viewer, base_link→sensor_kit_base_link→velodyne_top_base_link→velodyne_top, CAM×6(camera_link→camera_optical_link, 정적 TF는 sensor_kit 정의라 경량 매핑에서도 6대 모두 존재), tamagawa/imu_link, gnss_link. frame_id: before_sync = velodyne_top, concatenated = base_link, CAM_FRONT = CAM_FRONT/camera_optical_link
+  - 자원(정지 상태, CARLA GUI·경량 매핑·RViz): VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3개 각 ~230), GPU util 평균 38.5%, CPU carla 223%·autoware 340%, load 5.07, 메모리 carla 2.55 GiB·autoware 27.65 GiB(5분간 변화 없음. component_container 4개 각 3.8~4.6 GB, rviz2 1.9 GB, pose_initializer 1.5 GB)
+  - VRAM 내역 중 그 밖 약 1.5 GiB: compute 프로세스 목록에 없는 그래픽 프로세스(rviz2 OpenGL, 데스크톱 등)로 추정, 미측정. CUDA 컨테이너 3개(각 ~230 MiB)는 어떤 노드인지 미식별 → #15에서 nvidia-smi 전체 출력과 PID별 노드 이름으로 확인
+  - 캡처: [RViz sensing(base_link)](images/14_rviz_sensing_base_link.png), [CARLA ego top-down](images/14_carla_ego_topdown.png), [RViz localization(map)](images/14_rviz_localization_map.png), [TF 트리](images/14_tf_frames.pdf)
+  - 미확인: Autoware 종료 후 CARLA 동기 모드 잔존 여부(#15)
