@@ -27,7 +27,7 @@ CARLA + Autoware로 인지-판단-제어 파이프라인을 학습하는 개인 
 
 ## 라벨
 - 작업 유형: setup(환경 구성), docs(문서), bug(오류), devops(CI·자동화·버전 고정), test(시뮬레이션 주행·검증·평가 실험)
-- 모듈: planning, control, perception
+- 모듈: planning, control, perception, localization
 - 이슈에는 작업 유형 1개 + 관련 모듈(있으면)을 붙인다
 - exp/ 브랜치는 머지되지 않을 수 있는 실험용이고, test 라벨은 결과를 main에 남기는 검증 작업이다
 
