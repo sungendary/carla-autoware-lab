@@ -89,7 +89,7 @@
 - 배경: universe-cuda-humble-2.0.0에 autoware_carla_interface(autoware_universe 0.53.1)와 carla_sensor_kit_description/launch가 포함되고, e2e_simulator.launch.xml이 simulator_type:=carla를 지원한다(기본값 awsim). 인터페이스는 CARLA Python 클라이언트로 서버에 TCP 접속한다(2000 RPC, 2001 센서 스트리밍).
 - 결정
   - 인터페이스는 Autoware 컨테이너 안에서 e2e_simulator로 실행한다.
-  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). 최상위에서 준 host·port는 launch 구조상(인자 없이 include) 전달될 것으로 판단, 실행 확인은 #14(ros2 param get). #13에서는 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인했다.
+  - CARLA와 Autoware 컨테이너를 사용자 정의 bridge 네트워크 carla-aw에 연결하고 컨테이너 이름 carla로 접속한다: e2e_simulator 인자 `host:=carla`(기본 localhost), `port:=2000`(기본 2000). 최상위에서 준 host·port는 launch 구조상(인자 없이 include) 전달될 것으로 판단했고, #14에서 `ros2 param get /autoware_carla_interface host` = carla로 확인했다(2026-11-15). #13에서는 Python 클라이언트로 같은 경로(carla:2000/2001)만 확인했다.
   - 호스트 공개는 127.0.0.1:2000-2002를 유지한다(호스트 conda 클라이언트용).
   - DDS는 Autoware 컨테이너 내부 lo에서 끝난다(D-007 유지).
 - 고려한 대안
@@ -121,3 +121,12 @@
   - 모든 코드를 Python으로 작성: Autoware 노드 관례와 인터페이스에 맞지 않음
 - 이유: Autoware 노드는 C++가 관례이고 메시지·플러그인 인터페이스와 실시간 성능이 C++ 기준이다. 오프라인 도구는 업계에서도 Python이 일반적이다. 기준을 "실행 위치와 실시간성"으로 두면 Phase 2 모듈 교체에서 C++ 경험이 자연스럽게 생긴다.
 - 다시 볼 조건: Python 도구가 측정상 병목이 될 때, 또는 C++로만 제공되는 API를 써야 할 때
+
+## D-012. ego 스폰 위치 고정: spawn_point(CARLA 좌표) + spawn_point_ground_snap
+
+- 날짜: 2026-11-15
+- 배경: e2e_simulator의 `spawn_point` 기본값은 None이라 실행마다 ego가 랜덤 위치에 스폰된다. 값은 CARLA 좌표(deg)로 "x, y, z, roll, pitch, yaw"를 받고, 형식이 틀리면 오류 없이 랜덤으로 돌아간다.
+- 결정: `spawn_point:="395.96, 249.43, 0.30, 0.0, 0.0, -90.0"` + `spawn_point_ground_snap:=true`로 고정한다. 위치는 Phase 0 CARLA 기준값(Town01 spawn index 163, 시드 42 스폰 x=396.0, y=249.4, yaw −90)을 재사용한다. #14에서 이 위치로 GNSS 자동 초기화·NDT 수렴을 확인했다.
+- 고려한 대안: 랜덤 스폰(기본값)
+- 이유: 실행마다 출발지가 같아야 위치 추정·주행 결과를 비교할 수 있다(재현성). Phase 1은 고정 출발지에서 목적지까지 주행하는 것이 기준이고, Phase 0에서 이미 검증한 좌표라 새로 고를 필요가 없다. ground_snap은 z를 지면에 맞춰 스폰 높이 오차를 줄인다.
+- 다시 볼 조건: 목적지·경로를 확정할 때(#15) 이 출발지로는 경로가 맞지 않아 출발지를 바꿔야 할 때
