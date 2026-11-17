@@ -51,7 +51,7 @@
 | autoware_carla_interface 설치 위치 | `/opt/autoware/autoware_carla_interface/local/lib/python3.10/dist-packages/autoware_carla_interface` (컨테이너 안) |
 | RViz 설정 (CARLA 확인용) | `~/autoware_data/rviz/carla_check.rviz` (컨테이너 `/autoware_data/rviz/carla_check.rviz`) |
 | 실행 로그 | `~/autoware_data/logs` (컨테이너 `/autoware_data/logs`) |
-| 캡처 | `docs/images/{이슈번호}_{내용}_{기준}.png` (예: 14_rviz_sensing_base_link.png) |
+| 캡처 | `docs/images/{이슈번호}_{내용}[_{기준}].{png\|pdf}` (예: 14_rviz_sensing_base_link.png, 14_tf_frames.pdf) |
 
 Town01 자산 출처 (openadkit deployment.json 기준)
 - Town01.osm: https://bitbucket.org/carla-simulator/autoware-contents/raw/062f94b5322e679ee0430e2daa6995dca9f7f0ea/maps/vector_maps/lanelet2/Town01.osm sha256 5e3c0873004666a399494a59048b93ecfbd1d40433c29d29e7319847a2a8afa2
@@ -330,8 +330,8 @@ source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash
 # 상태 확인
 ros2 param get /autoware_carla_interface host                              # String value is: carla
 timeout 5 ros2 topic echo /api/localization/initialization_state --once  # state 3 (GNSS 자동 초기화)
-ros2 topic hz /clock                                                       # 약 20 Hz (RTF≈1)
-ros2 topic hz /sensing/lidar/concatenated/pointcloud                       # 약 10 Hz
+timeout 10 ros2 topic hz /clock                                            # 약 20 Hz (RTF≈1)
+timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약 10 Hz
 ```
 
 - RViz 설정: `/autoware_data/rviz/carla_check.rviz` (File → Open Config). 기본 autoware.rviz는 덮어쓰지 않는다. 값 편집은 Displays 패널의 값 칸을 더블클릭
@@ -382,7 +382,7 @@ ros2 topic hz /sensing/lidar/concatenated/pointcloud                       # 약
 ### 2026-11-15 / Town01.osm·Town01.pcd를 Bitbucket raw URL로 받으면 404
 - 원인: 두 파일이 Git LFS 파일이라 raw URL로는 받을 수 없음(GET 404·HEAD 403). 호스트에는 git-lfs가 설치되어 있지 않고 ~/.gitconfig에 LFS 필터 설정만 남아 있었음
 - 해결: git-lfs 설치(apt, packagecloud.io/github/git-lfs) 후 sparse checkout + git lfs pull (명령은 경로 절 "Town01 자산 출처")
-- 주의: checkout 중 LFS 다운로드(smudge)는 진행률이 표시되지 않아 멈춘 것처럼 보임 → `GIT_LFS_SKIP_SMUDGE=1`로 포인터만 checkout한 뒤 `git lfs pull`로 받으면 진행률이 보임
+- 주의: checkout 중 LFS 다운로드(smudge)는 진행률이 표시되지 않아 멈춘 것처럼 보임 → `GIT_LFS_SKIP_SMUDGE=1`로 포인터만 checkout한 뒤 `git lfs pull`로 받음. 이번에는 중단된 checkout이 이미 받아 두어 lfs pull 출력 없음
 
 ### 2026-11-15 / e2e launch 직후 "Failed transform to map", "not part of the same tree" 반복, aggregator "Mode path not found"
 - 원인: 오류 아님. 위치 초기화 전에는 map→base_link TF가 없어 변환이 실패함. aggregator 메시지는 시작 시 1회성
@@ -421,5 +421,6 @@ ros2 topic hz /sensing/lidar/concatenated/pointcloud                       # 약
   - 좌표 변환: CARLA (x, y, yaw) → map (x, −y, −yaw), 원점 같음(0). base_link는 CARLA 액터 중심에서 진행 반대 방향으로 wheelbase/2(1.425 m) 떨어진 점(후륜축 중심)
   - TF: map→base_link(EKF 20.2 Hz)·map→ndt_base_link(10.2 Hz)·map→viewer, base_link→sensor_kit_base_link→velodyne_top_base_link→velodyne_top, CAM×6(camera_link→camera_optical_link, 정적 TF는 sensor_kit 정의라 경량 매핑에서도 6대 모두 존재), tamagawa/imu_link, gnss_link. frame_id: before_sync = velodyne_top, concatenated = base_link, CAM_FRONT = CAM_FRONT/camera_optical_link
   - 자원(정지 상태, CARLA GUI·경량 매핑·RViz): VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3개 각 ~230), GPU util 평균 38.5%, CPU carla 223%·autoware 340%, load 5.07, 메모리 carla 2.55 GiB·autoware 27.65 GiB(5분간 변화 없음. component_container 4개 각 3.8~4.6 GB, rviz2 1.9 GB, pose_initializer 1.5 GB)
+  - VRAM 내역 중 그 밖 약 1.5 GiB: compute 프로세스 목록에 없는 그래픽 프로세스(rviz2 OpenGL, 데스크톱 등)로 추정, 미측정. CUDA 컨테이너 3개(각 ~230 MiB)는 어떤 노드인지 미식별 → #15에서 nvidia-smi 전체 출력과 PID별 노드 이름으로 확인
   - 캡처: [RViz sensing(base_link)](images/14_rviz_sensing_base_link.png), [CARLA ego top-down](images/14_carla_ego_topdown.png), [RViz localization(map)](images/14_rviz_localization_map.png), [TF 트리](images/14_tf_frames.pdf)
   - 미확인: Autoware 종료 후 CARLA 동기 모드 잔존 여부(#15)
