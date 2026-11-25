@@ -19,8 +19,9 @@ CARLA + Autoware로 인지-판단-제어 파이프라인을 학습하는 개인 
 ## 브랜치·커밋 규칙 (GitHub Flow)
 - main은 항상 실행 가능한 상태로 유지한다. 원칙적으로 main에 직접 커밋하지 않는다
 - 예외: 문서(*.md)만 수정하고 의미가 바뀌지 않는 변경(오타, 서식, 링크, 진행 체크)은 main에 직접 커밋할 수 있다. 판단이 애매하면 브랜치를 쓴다 (D-006)
-- 이슈마다 브랜치를 만든다: 종류/영역-주제 (feat/, fix/, exp/, docs/, setup/)
-  예: setup/docker-gpu, feat/control-pure-pursuit
+- 이슈마다 브랜치를 만든다: 종류/영역-주제 (feat/, fix/, exp/, docs/, setup/, test/)
+  예: setup/docker-gpu, feat/control-pure-pursuit, test/town01-first-drive
+  - test/: 결과를 main에 남기는 검증 작업(시뮬레이션 주행·평가 실험)
 - 작업이 끝나면 PR을 만들고, 본문에 무엇을·왜·어떻게 확인했는지와 `Closes #번호`를 적는다
 - Phase 완료 시 main에 버전 태그를 붙인다 (Phase 0 → v0.1.0)
 - 머지 후 브랜치 삭제(원격은 자동 삭제 설정), 미머지 exp/ 브랜치는 archive/ 태그로 보관 후 삭제

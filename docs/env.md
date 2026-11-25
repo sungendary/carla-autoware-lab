@@ -47,10 +47,11 @@
 | 컨테이너용 CARLA Python | `~/autoware_deps/carla-0.9.16-site` (컨테이너 `/opt/carla-py`, 읽기 전용, D-010) |
 | 샘플 맵 | `~/autoware_data/maps/sample-map-planning` (zip sha256:5536fce7bb8db7688fdf94ec004118b898637ad0d5b6175108b10989dd6e93b9, 2.0.0 demo_artifacts role 기준) |
 | 인지 모델 | `~/autoware_data/ml_models` (현재 `-v $HOME/autoware_data:/autoware_data` 마운트로 쓰기 가능(TensorRT 엔진 생성에 필요). e2e_simulator data_path 기본값은 `$HOME/autoware_data/ml_models` → 컨테이너 `/autoware_data` 마운트와 불일치, e2e 실행 명령에서 `data_path:=/autoware_data/ml_models` 지정) |
-| Town01 맵 | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local). 2026-11-15 해시 확인, 원본 `~/autoware_src/autoware-contents` |
+| Town01 맵 | `~/autoware_data/maps/Town01` (lanelet2_map.osm, pointcloud_map.pcd, map_projector_info.yaml: projector_type: Local). 2026-11-15 해시 확인, 원본 `~/autoware_src/autoware-contents`. lanelet2_map.osm은 lanelet이 subtype road 124개뿐이고 traffic_light 규제 요소·turn_direction이 없음 → 신호 인식 설정(use_traffic_light_recognition)은 주행에 영향 없음, CARLA 신호등 무시·교차로 양보 미동작(교통 시나리오 한계, #15) |
 | autoware_carla_interface 설치 위치 | `/opt/autoware/autoware_carla_interface/local/lib/python3.10/dist-packages/autoware_carla_interface` (컨테이너 안) |
 | RViz 설정 (CARLA 확인용) | `~/autoware_data/rviz/carla_check.rviz` (컨테이너 `/autoware_data/rviz/carla_check.rviz`) |
 | 실행 로그 | `~/autoware_data/logs` (컨테이너 `/autoware_data/logs`) |
+| rosbag | `~/autoware_data/rosbags` (컨테이너 `/autoware_data/rosbags`), 파일명 `{이슈}_{내용}_{MMDD_HHMM}` (예: 15_driveB_cli_1125_1839) |
 | 캡처 | `docs/images/{이슈번호}_{내용}[_{기준}].{png\|pdf}` (예: 14_rviz_sensing_base_link.png, 14_tf_frames.pdf) |
 
 Town01 자산 출처 (openadkit deployment.json 기준)
@@ -313,6 +314,7 @@ Town01 e2e 실행 (#14). CARLA·Autoware 컨테이너는 위 명령으로 띄운
 
 ```bash
 # (Autoware 컨테이너 안) e2e_simulator + CARLA, 로그는 /autoware_data/logs에 저장
+ISSUE=15   # 로그 파일명 {이슈}_e2e_{MMDD_HHMM}.log → 진행 중인 이슈 번호로 바꿔 쓴다
 ros2 launch autoware_launch e2e_simulator.launch.xml \
   map_path:=/autoware_data/maps/Town01 \
   vehicle_model:=sample_vehicle sensor_model:=carla_sensor_kit \
@@ -320,7 +322,7 @@ ros2 launch autoware_launch e2e_simulator.launch.xml \
   data_path:=/autoware_data/ml_models \
   use_light_weight_sensor_mapping:=true use_traffic_light_recognition:=false \
   spawn_point:="395.96, 249.43, 0.30, 0.0, 0.0, -90.0" spawn_point_ground_snap:=true \
-  2>&1 | tee /autoware_data/logs/14_e2e_$(date +%m%d_%H%M).log
+  2>&1 | tee /autoware_data/logs/${ISSUE}_e2e_$(date +%m%d_%H%M).log
 # spawn_point: CARLA 좌표·deg, 대괄호 없이 "x, y, z, roll, pitch, yaw". 6개가 아니면 오류 없이 랜덤 스폰
 
 # 두 번째 셸 (호스트에서)
@@ -335,7 +337,46 @@ timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약
 ```
 
 - RViz 설정: `/autoware_data/rviz/carla_check.rviz` (File → Open Config). 기본 autoware.rviz는 덮어쓰지 않는다. 값 편집은 Displays 패널의 값 칸을 더블클릭
-- 종료 후 CARLA 동기 모드: 미확인(CARLA를 먼저 종료함). CARLA 컨테이너를 새로 띄우면 기본 비동기. CARLA 실행 중 Autoware만 재시작할 때 동기 모드가 남는지는 #15에서 확인
+- 종료 후 CARLA 동기 모드: Autoware만 Ctrl-C로 종료하면 동기 모드 True(fixed_delta 0.05)가 남는다. ego·센서 액터는 정리되고, 다시 launch하면 같은 위치에 재스폰된다(#15). 동기 모드가 남아 있으므로 Autoware가 꺼진 동안 tick을 보내지 않는 클라이언트는 응답을 기다리며 멈춘다(check_connection.py는 --tick). CARLA 컨테이너를 새로 띄우면 기본 비동기
+
+### Town01 고정 경로 주행 (#15)
+
+출발지·목적지는 고정한다(D-012, D-013). CARLA·Autoware 컨테이너는 위 "CARLA ↔ Autoware 연결" 명령으로 띄운 상태에서 시작한다.
+
+- 고정 출발지: D-012 그대로 (map (395.99, −250.85) yaw 90°). 재스폰 2회 위치 차이 1 cm 이내
+- 고정 목적지(goal B): map (252.83, 2.25, 0.0), yaw 180° = 쿼터니언 (0, 0, 1, 0). 직선 약 250 m 후 교차로 좌회전, 약 143 m, 총 약 390 m
+- 절차: e2e launch → initialization_state 3·kinematic_state 출발지 확인 → 녹화 시작 → set_route_points → routing/state 2·is_autonomous_mode_available True → change_to_autonomous → routing/state 3 확인 후 몇 초 뒤 녹화 종료 → bag_summary.py
+- 도착하면 operation_mode가 자동으로 1(STOP)이 된다 → 회차마다 AUTO 필요
+- 회차 사이: launch를 Ctrl-C로 끄고 다시 launch (CARLA 재시작 불필요)
+
+```bash
+ISSUE=16   # 이슈 번호. 셸마다 정의한다(launch 셸에서 정한 값은 다른 셸에 없음)
+
+# (Autoware 컨테이너 안, 두 번째 셸) 1) 위 e2e launch 후 상태 확인
+timeout 5 ros2 topic echo /api/localization/initialization_state --once  # state 3
+timeout 5 ros2 topic echo /localization/kinematic_state --once --field pose.pose  # (395.99, −250.85) 부근
+
+# 2) 녹화 (세 번째 셸에서도 ISSUE= 먼저 정의, 파일명 {이슈}_{내용}_{MMDD_HHMM})
+ros2 bag record -o /autoware_data/rosbags/${ISSUE:?ISSUE를 먼저 정의}_driveB_cli_$(date +%m%d_%H%M) -e '^(/localization/kinematic_state|/localization/pose_estimator/nearest_voxel_transformation_likelihood|/api/routing/state|/api/operation_mode/state|/api/planning/velocity_factors|/control/command/control_cmd|/planning/planning_factors/.*)$'
+
+# 3) 목적지 지정 → routing/state 2, is_autonomous_mode_available True 확인
+ros2 service call /api/routing/set_route_points autoware_adapi_v1_msgs/srv/SetRoutePoints "{header: {frame_id: map}, option: {allow_goal_modification: false}, goal: {position: {x: 252.83, y: 2.25, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 1.0, w: 0.0}}, waypoints: []}"
+timeout 5 ros2 topic echo /api/routing/state --once                 # state 2 SET
+timeout 5 ros2 topic echo /api/operation_mode/state --once          # is_autonomous_mode_available: true
+# 지정된 goal 확인 (route는 TRANSIENT_LOCAL이라 QoS 지정 필요)
+timeout 5 ros2 topic echo /planning/mission_planning/route --once --field goal_pose \
+  --qos-durability transient_local --qos-reliability reliable
+
+# 4) AUTO → routing/state 3(ARRIVED) 확인 후 몇 초 뒤 녹화 셸에서 Ctrl-C
+ros2 service call /api/operation_mode/change_to_autonomous autoware_adapi_v1_msgs/srv/ChangeOperationMode {}
+
+# 5) (호스트, 저장소 루트) 주행 요약: AUTO→ARRIVED 시간·출발 지연·속도·NVTL·중간 정지·goal 오차
+cd ~/Desktop/develop/carla-autoware-lab
+docker exec -i -u aw autoware bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && python3 - /autoware_data/rosbags/<bag> 252.83 2.25" < scripts/analysis/bag_summary.py
+
+# (호스트, Autoware 정지 중에만) CARLA 상태: 맵·동기 모드·차량·센서 수 (읽기만 함, tick 없음)
+conda activate carla && python scripts/carla/check_world_state.py
+```
 
 ## 트러블슈팅 기록
 
@@ -380,7 +421,7 @@ timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약
 - 해결: CARLA를 --network carla-aw로 다시 실행하고, 약 20초 뒤 `docker exec -i -u aw autoware getent hosts carla`로 확인
 
 ### 2026-11-15 / Town01.osm·Town01.pcd를 Bitbucket raw URL로 받으면 404
-- 원인: 두 파일이 Git LFS 파일이라 raw URL로는 받을 수 없음(GET 404·HEAD 403). 호스트에는 git-lfs가 설치되어 있지 않고 ~/.gitconfig에 LFS 필터 설정만 남아 있었음
+- 원인: 두 파일이 Git LFS 파일이라 raw로 받지 못한 것으로 추정(GET 404·HEAD 403, 직접 원인은 미확인). 호스트에는 git-lfs가 설치되어 있지 않고 ~/.gitconfig에 LFS 필터 설정만 남아 있었음
 - 해결: git-lfs 설치(apt, packagecloud.io/github/git-lfs) 후 sparse checkout + git lfs pull (명령은 경로 절 "Town01 자산 출처")
 - 주의: checkout 중 LFS 다운로드(smudge)는 진행률이 표시되지 않아 멈춘 것처럼 보임 → `GIT_LFS_SKIP_SMUDGE=1`로 포인터만 checkout한 뒤 `git lfs pull`로 받음. 이번에는 중단된 checkout이 이미 받아 두어 lfs pull 출력 없음
 
@@ -392,11 +433,19 @@ timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약
 - 원인: 발행은 정상(/map/vector_map_marker·/map/pointcloud_map TRANSIENT_LOCAL). Lanelet2VectorMap은 Status Ok인데 Namespaces가 비어 있음 → 1회만 발행되는 메시지를 표시 항목이 받지 못한 상태. 점군 맵은 기본값(크기 1px, Alpha 0.2)이 너무 작고 흐림
 - 해결: 표시 항목 체크를 껐다 다시 켜서 재구독 → 차선 표시됨. PointCloudMap은 Size 2·Alpha 0.6으로 변경 후 carla_check.rviz에 저장
 
+### 2026-11-25 / launch 종료 후 ps에 python3 프로세스 1개 잔류
+- 원인: ros2 CLI daemon(_ros2_daemon). 노드가 아님
+- 해결: 무시해도 됨(종료해도 다음 ros2 명령 때 자동 재시작)
+
+### 2026-11-25 / timeout으로 ros2 topic hz 종료 시 "failed to initialize wait set ... context is not valid"
+- 원인: timeout이 강제 종료할 때 나오는 메시지
+- 해결: 무시
+
 ## 검증 범위
 
 - GPU: 컨테이너 내 OpenGL 렌더링 확인 (nvidia-smi에서 rviz2 Type G). CUDA 연산·TensorRT는 아래 2026-11-15 항목(#13)에서 확인
 - rmem_max 영구 적용: 재부팅 후 유지 확인 (2026-11-07, 부팅 16:46:47 이후 2147483647)
-- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준). Town01 e2e(경량 매핑·RViz) 실행 시 VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3×~230), 상세는 아래 2026-11-15 #14 항목
+- CARLA VRAM (GUI·기본 품질): 기준 481 MiB → Town10HD 6989 MiB(약 6.5GB 사용), Town01 4846 MiB(약 4.3GB 사용) / 총 16303 MiB (센서 미부착 기준). Town01 e2e(경량 매핑·RViz) 실행 시 VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3×~230 — #15에서 재현 안 됨), 상세는 아래 #14·#15 항목
 - CARLA 재현성: 동기 모드(0.05 s) + TM 시드 42로 2회 실행 시 스폰 좌표·속도·이동거리 동일 (액터 id는 실행마다 다름)
 - 서버 실행 명령(-p 127.0.0.1 바인딩) 확인 (2026-11-07, docker port에 127.0.0.1만 표시)
 - 콜드 런: 2026-11-08 새 터미널에서 env.md만으로 Autoware planning simulator(P→G→AUTO, 도착)와 CARLA 스폰 재현. spawn 앞 cd 누락 1건 발견 후 수정
@@ -420,7 +469,23 @@ timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약
   - 위치 추정: GNSS 자동 초기화 state 3(sim 13.9 s). kinematic_state (395.99, −250.85) yaw 90.1°, NDT NVTL 2.70 ≥ 2.3(converged_param_type 1). no_ground NVTL은 기본 미발행
   - 좌표 변환: CARLA (x, y, yaw) → map (x, −y, −yaw), 원점 같음(0). base_link는 CARLA 액터 중심에서 진행 반대 방향으로 wheelbase/2(1.425 m) 떨어진 점(후륜축 중심)
   - TF: map→base_link(EKF 20.2 Hz)·map→ndt_base_link(10.2 Hz)·map→viewer, base_link→sensor_kit_base_link→velodyne_top_base_link→velodyne_top, CAM×6(camera_link→camera_optical_link, 정적 TF는 sensor_kit 정의라 경량 매핑에서도 6대 모두 존재), tamagawa/imu_link, gnss_link. frame_id: before_sync = velodyne_top, concatenated = base_link, CAM_FRONT = CAM_FRONT/camera_optical_link
-  - 자원(정지 상태, CARLA GUI·경량 매핑·RViz): VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3개 각 ~230), GPU util 평균 38.5%, CPU carla 223%·autoware 340%, load 5.07, 메모리 carla 2.55 GiB·autoware 27.65 GiB(5분간 변화 없음. component_container 4개 각 3.8~4.6 GB, rviz2 1.9 GB, pose_initializer 1.5 GB)
-  - VRAM 내역 중 그 밖 약 1.5 GiB: compute 프로세스 목록에 없는 그래픽 프로세스(rviz2 OpenGL, 데스크톱 등)로 추정, 미측정. CUDA 컨테이너 3개(각 ~230 MiB)는 어떤 노드인지 미식별 → #15에서 nvidia-smi 전체 출력과 PID별 노드 이름으로 확인
+  - 자원(정지 상태, CARLA GUI·경량 매핑·RViz): VRAM max 8056/16303 MiB(CARLA 4284, centerpoint 컨테이너 1558, CUDA 컨테이너 3개 각 ~230), GPU util 평균 38.5%, CPU carla 223%·autoware 340%, load 5.07, 메모리 carla 2.55 GiB·autoware 27.65 GiB(5분간 변화 없음. component_container 4개 각 3.8~4.6 GB, rviz2 1.9 GB, pose_initializer 1.5 GB). 메모리 측정 방법 미기재(저장소·이슈 #14·PR #23에 기록 없음) → #15 docker stats 값(autoware 약 10 GiB)과 직접 비교 불가
+  - VRAM 내역 중 그 밖 약 1.5 GiB와 CUDA 컨테이너 3개(각 ~230 MiB): #14 당시 미식별 → #15 재측정에서 CUDA 컨테이너 3개는 재현 안 됨, 그래픽 1089 MiB(Xorg 464, gnome-shell 92, rviz2 301, 기타 앱 2개 232) + 미할당 약 195 MiB로 확인(아래 #15 항목)
   - 캡처: [RViz sensing(base_link)](images/14_rviz_sensing_base_link.png), [CARLA ego top-down](images/14_carla_ego_topdown.png), [RViz localization(map)](images/14_rviz_localization_map.png), [TF 트리](images/14_tf_frames.pdf)
-  - 미확인: Autoware 종료 후 CARLA 동기 모드 잔존 여부(#15)
+  - Autoware 종료 후 CARLA 동기 모드 잔존 여부: #15에서 확인(동기 모드 True 잔류, "CARLA ↔ Autoware 연결" 절)
+- 2026-11-25 Town01 목적지 주행 (#15)
+  - 출발지 D-012, goal은 D-013. 명령은 "Town01 고정 경로 주행 (#15)" 절. 요약은 scripts/analysis/bag_summary.py(AUTO~ARRIVED 구간)
+  - 주행 결과: 세 회차 모두 무개입 도착, 중간 정지 0, NVTL 2.3 미만 0건
+
+    | 회차 | goal | AUTO→ARRIVED | 출발 지연 | 이동 시간 | 이동 거리 | 최대/평균 km/h (이동 구간) | NVTL 최소/평균 | goal 오차 | bag |
+    |---|---|---|---|---|---|---|---|---|---|
+    | A | (397.10, −60.73) yaw 89.54° 직선 190 m | 99.9 s | 35.7 s | 64.3 s | 189.8 m | 13.1/10.6 | 2.57/2.83 | 0.45 m | 15_driveA_1125_1743 |
+    | B (RViz 클릭) | (252.83, 2.25) yaw −175.9° | 117.2 s | 11.1 s | 106.1 s | 391.3 m | 16.2/13.3 | 2.58/2.92 | 0.41 m | 15_driveB_1125_1827 |
+    | B-cli (고정 goal) | (252.83, 2.25) yaw 180° | 140.5 s | 34.5 s | 106.0 s | 391.3 m | 16.2/13.3 | 2.62/2.89 | 0.44 m | 15_driveB_cli_1125_1839 |
+
+  - 지표 정의(bag_summary.py): 이동 구간 = AUTO 후 첫 이동(속도 ≥0.1 m/s)~ARRIVED. 이동 거리는 이 구간 kinematic_state 위치(x, y) 누적, 속도 최대·평균도 이 구간 기준(처음 기록한 평균 6.8/12.0/10.0 km/h는 출발 지연 정지 시간이 섞인 값이라 PR #24 리뷰에서 수정). NVTL은 AUTO→ARRIVED 전체
+  - 출발 지연: 세 회차 모두 Autoware 출발 명령(control_cmd 목표 속도 ≥0.1 m/s)이 AUTO+10.4~34.8 s에 나오고 0.7~0.9 s 뒤 차가 움직임 → 지연은 Autoware 쪽(어느 모듈인지 미확인, planning_factors 비어 있음). #16에서 원인 조사
+  - 재현성(같은 goal B): 이동 시간 106.1 s vs 106.0 s, 이동 거리 391.3 m vs 391.3 m, 평균(이동 구간) 13.3 km/h 동일
+  - planning_factors: traffic_light·intersection 등이 약 10 Hz로 발행되지만 factor 0건(정지 판단 없음). intersection_collision_checker는 발행 0건. /api/planning/velocity_factors는 goal 정지를 포함해 전 구간 비어 있음
+  - 자원(docker stats): 메모리 autoware 정지 9.98 GiB·주행 10.02 GiB, carla 2.51 GiB. CPU 주행 중 carla 212%·autoware 373%. VRAM 정지 6894·주행 6935/16303 MiB, GPU util 36→41%. NET I/O carla→autoware 누적 약 180 GB(센서 스트리밍)
+  - VRAM 내역(정지): compute 프로세스는 CARLA 4052 MiB(C+G)·pointcloud_container(centerpoint) 1558 MiB뿐. #14의 CUDA 컨테이너 3×~230 MiB는 재현 안 됨. 그래픽 1089 MiB(Xorg 464, gnome-shell 92, rviz2 301, 기타 앱 2개 232), 미할당 약 195 MiB
