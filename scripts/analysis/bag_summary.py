@@ -1,4 +1,7 @@
-"""rosbag 주행 요약: AUTO~ARRIVED(없으면 bag 끝) 구간의 시간·출발 지연·속도·NVTL·정지·정지 원인·goal 오차."""
+"""rosbag 주행 요약: AUTO~ARRIVED(없으면 bag 끝) 구간의 시간·출발 지연·속도·이동 거리·NVTL·정지·정지 원인·goal 오차.
+
+속도(최대·평균)와 이동 거리는 이동 구간(AUTO 후 첫 이동~끝) 기준이라 출발 지연 시간이 섞이지 않는다.
+"""
 import math
 import sys
 from collections import Counter
@@ -23,6 +26,7 @@ def main():
     types = {t.name: get_message(t.type) for t in reader.get_all_topics_and_types()}
 
     nvtl, speed = [], []
+    pos = []                # (t, x, y) kinematic_state 위치
     cmd = []                # (t, 명령 속도, 명령 가속도)
     behaviors = Counter()   # velocity_factors (behavior, status) 건수
     pfactors = Counter()    # planning_factors (모듈, behavior, detail) 건수
@@ -38,6 +42,7 @@ def main():
         elif topic == "/localization/kinematic_state":
             speed.append((t, msg.twist.twist.linear.x))
             last_pos = msg.pose.pose.position
+            pos.append((t, last_pos.x, last_pos.y))
         elif topic == "/control/command/control_cmd":
             cmd.append((t, msg.longitudinal.velocity, msg.longitudinal.acceleration))
         elif topic == "/api/operation_mode/state" and msg.mode == 2 and t_auto is None:
@@ -78,7 +83,9 @@ def main():
     vals = [v for _, v in run_nvtl]
     label = "AUTO→ARRIVED" if arrived else "AUTO→bag 끝 (도착 안 함)"
     print(f"주행 시간 {label}: {t_end - t_auto:.1f} s")
-    if t_move is not None:
+    if not run_speed:
+        print("출발 지연: 데이터 없음 (구간 안에 kinematic_state 없음)")
+    elif t_move is not None:
         print(f"출발 지연 AUTO→첫 이동: {t_move - t_auto:.1f} s, 이동 시간 첫 이동→끝: {t_end - t_move:.1f} s")
         # 출발 지연 구간에 Autoware가 보낸 명령: 0이면 Autoware가 출발을 늦춤, >0이면 차가 명령을 못 따름
         run_cmd = [(t, v, a) for t, v, a in cmd if t_auto <= t <= t_move]
@@ -88,10 +95,24 @@ def main():
               f"명령 속도 첫 ≥{STOP_SPEED}: " + (f"AUTO+{t_cmd - t_auto:.1f} s" if t_cmd else "없음"))
     else:
         print("출발 지연: AUTO 후 한 번도 움직이지 않음")
-    print(f"속도 최대 {max(v for _, v in run_speed) * 3.6:.1f} km/h, "
-          f"평균 {sum(v for _, v in run_speed) / len(run_speed) * 3.6:.1f} km/h")
-    print(f"NVTL 최소 {min(vals):.2f} / 평균 {sum(vals) / len(vals):.2f} / 최대 {max(vals):.2f}, "
-          f"{NVTL_MIN_OK} 미만 {sum(v < NVTL_MIN_OK for v in vals)}/{len(vals)}건")
+    # 이동 구간(t_move~t_end): 출발 지연 동안의 정지 표본을 빼고 속도·거리를 계산
+    move_speed = [v for t, v in run_speed if t_move is not None and t >= t_move]
+    if move_speed:
+        print(f"속도(이동 구간) 최대 {max(move_speed) * 3.6:.1f} km/h, "
+              f"평균(이동 구간) {sum(move_speed) / len(move_speed) * 3.6:.1f} km/h")
+    else:
+        print("속도(이동 구간): 데이터 없음")
+    move_pos = [(x, y) for t, x, y in pos if t_move is not None and t_move <= t <= t_end]
+    if len(move_pos) >= 2:
+        dist = sum(math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(move_pos, move_pos[1:]))
+        print(f"이동 거리(이동 구간, 위치 누적): {dist:.1f} m")
+    else:
+        print("이동 거리(이동 구간): 데이터 없음")
+    if vals:
+        print(f"NVTL 최소 {min(vals):.2f} / 평균 {sum(vals) / len(vals):.2f} / 최대 {max(vals):.2f}, "
+              f"{NVTL_MIN_OK} 미만 {sum(v < NVTL_MIN_OK for v in vals)}/{len(vals)}건")
+    else:
+        print("NVTL: 데이터 없음")
     print(f"중간 정지(≥{STOP_MIN_SEC}s): {len(stops)}회",
           [f"AUTO+{s:.1f}s 동안 {d:.1f}s" + (" (끝까지 정지)" if end else "") for s, d, end in stops])
     print("velocity_factors (behavior, status): 건수")

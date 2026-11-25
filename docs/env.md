@@ -350,12 +350,14 @@ timeout 10 ros2 topic hz /sensing/lidar/concatenated/pointcloud            # 약
 - 회차 사이: launch를 Ctrl-C로 끄고 다시 launch (CARLA 재시작 불필요)
 
 ```bash
+ISSUE=16   # 이슈 번호. 셸마다 정의한다(launch 셸에서 정한 값은 다른 셸에 없음)
+
 # (Autoware 컨테이너 안, 두 번째 셸) 1) 위 e2e launch 후 상태 확인
 timeout 5 ros2 topic echo /api/localization/initialization_state --once  # state 3
 timeout 5 ros2 topic echo /localization/kinematic_state --once --field pose.pose  # (395.99, −250.85) 부근
 
-# 2) 녹화 (세 번째 셸, 파일명 {이슈}_{내용}_{MMDD_HHMM})
-ros2 bag record -o /autoware_data/rosbags/15_driveB_cli_$(date +%m%d_%H%M) -e '^(/localization/kinematic_state|/localization/pose_estimator/nearest_voxel_transformation_likelihood|/api/routing/state|/api/operation_mode/state|/api/planning/velocity_factors|/control/command/control_cmd|/planning/planning_factors/.*)$'
+# 2) 녹화 (세 번째 셸에서도 ISSUE= 먼저 정의, 파일명 {이슈}_{내용}_{MMDD_HHMM})
+ros2 bag record -o /autoware_data/rosbags/${ISSUE:?ISSUE를 먼저 정의}_driveB_cli_$(date +%m%d_%H%M) -e '^(/localization/kinematic_state|/localization/pose_estimator/nearest_voxel_transformation_likelihood|/api/routing/state|/api/operation_mode/state|/api/planning/velocity_factors|/control/command/control_cmd|/planning/planning_factors/.*)$'
 
 # 3) 목적지 지정 → routing/state 2, is_autonomous_mode_available True 확인
 ros2 service call /api/routing/set_route_points autoware_adapi_v1_msgs/srv/SetRoutePoints "{header: {frame_id: map}, option: {allow_goal_modification: false}, goal: {position: {x: 252.83, y: 2.25, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 1.0, w: 0.0}}, waypoints: []}"
@@ -475,14 +477,15 @@ conda activate carla && python scripts/carla/check_world_state.py
   - 출발지 D-012, goal은 D-013. 명령은 "Town01 고정 경로 주행 (#15)" 절. 요약은 scripts/analysis/bag_summary.py(AUTO~ARRIVED 구간)
   - 주행 결과: 세 회차 모두 무개입 도착, 중간 정지 0, NVTL 2.3 미만 0건
 
-    | 회차 | goal | AUTO→ARRIVED | 출발 지연 | 이동 시간 | 최대/평균 km/h | NVTL 최소/평균 | goal 오차 | bag |
-    |---|---|---|---|---|---|---|---|---|
-    | A | (397.10, −60.73) yaw 89.54° 직선 190 m | 99.9 s | 35.7 s | 64.3 s | 13.1/6.8 | 2.57/2.83 | 0.45 m | 15_driveA_1125_1743 |
-    | B (RViz 클릭) | (252.83, 2.25) yaw −175.9° | 117.2 s | 11.1 s | 106.1 s | 16.2/12.0 | 2.58/2.92 | 0.41 m | 15_driveB_1125_1827 |
-    | B-cli (고정 goal) | (252.83, 2.25) yaw 180° | 140.5 s | 34.5 s | 106.0 s | 16.2/10.0 | 2.62/2.89 | 0.44 m | 15_driveB_cli_1125_1839 |
+    | 회차 | goal | AUTO→ARRIVED | 출발 지연 | 이동 시간 | 이동 거리 | 최대/평균 km/h (이동 구간) | NVTL 최소/평균 | goal 오차 | bag |
+    |---|---|---|---|---|---|---|---|---|---|
+    | A | (397.10, −60.73) yaw 89.54° 직선 190 m | 99.9 s | 35.7 s | 64.3 s | 189.8 m | 13.1/10.6 | 2.57/2.83 | 0.45 m | 15_driveA_1125_1743 |
+    | B (RViz 클릭) | (252.83, 2.25) yaw −175.9° | 117.2 s | 11.1 s | 106.1 s | 391.3 m | 16.2/13.3 | 2.58/2.92 | 0.41 m | 15_driveB_1125_1827 |
+    | B-cli (고정 goal) | (252.83, 2.25) yaw 180° | 140.5 s | 34.5 s | 106.0 s | 391.3 m | 16.2/13.3 | 2.62/2.89 | 0.44 m | 15_driveB_cli_1125_1839 |
 
+  - 지표 정의(bag_summary.py): 이동 구간 = AUTO 후 첫 이동(속도 ≥0.1 m/s)~ARRIVED. 이동 거리는 이 구간 kinematic_state 위치(x, y) 누적, 속도 최대·평균도 이 구간 기준(처음 기록한 평균 6.8/12.0/10.0 km/h는 출발 지연 정지 시간이 섞인 값이라 PR #24 리뷰에서 수정). NVTL은 AUTO→ARRIVED 전체
   - 출발 지연: 세 회차 모두 Autoware 출발 명령(control_cmd 목표 속도 ≥0.1 m/s)이 AUTO+10.4~34.8 s에 나오고 0.7~0.9 s 뒤 차가 움직임 → 지연은 Autoware 쪽(어느 모듈인지 미확인, planning_factors 비어 있음). #16에서 원인 조사
-  - 이동 시간 재현성: B 106.1 s vs B-cli 106.0 s
+  - 재현성(같은 goal B): 이동 시간 106.1 s vs 106.0 s, 이동 거리 391.3 m vs 391.3 m, 평균(이동 구간) 13.3 km/h 동일
   - planning_factors: traffic_light·intersection 등이 약 10 Hz로 발행되지만 factor 0건(정지 판단 없음). intersection_collision_checker는 발행 0건. /api/planning/velocity_factors는 goal 정지를 포함해 전 구간 비어 있음
   - 자원(docker stats): 메모리 autoware 정지 9.98 GiB·주행 10.02 GiB, carla 2.51 GiB. CPU 주행 중 carla 212%·autoware 373%. VRAM 정지 6894·주행 6935/16303 MiB, GPU util 36→41%. NET I/O carla→autoware 누적 약 180 GB(센서 스트리밍)
   - VRAM 내역(정지): compute 프로세스는 CARLA 4052 MiB(C+G)·pointcloud_container(centerpoint) 1558 MiB뿐. #14의 CUDA 컨테이너 3×~230 MiB는 재현 안 됨. 그래픽 1089 MiB(Xorg 464, gnome-shell 92, rviz2 301, 기타 앱 2개 232), 미할당 약 195 MiB
